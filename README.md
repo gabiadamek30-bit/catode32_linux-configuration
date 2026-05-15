@@ -14,6 +14,7 @@
 - [Gardening](#gardening)
 - [Playdates](#playdates)
 - [Home Comfort](#home-comfort)
+- [Sickness](#sickness)
 
 ### Pet Care
 Your pet needs your help to have a healthy, fulfilling, affectionate life.
@@ -147,6 +148,14 @@ The devices will also activate their wireless features whenever the cats are in 
 Periodically, your device will use wifi to get a sense of the world around it. It will just do a quick scan to see the names of nearby wireless networks and slowly build up a list of "familiar" ones. Once it has learned what networks you spend the most time around your cat will then feel more comfortable and safe around that location. If you travel to unfamiliar places your cat might be a bit more skittish and less comfortable until they spend some time getting familiar with that new space.
 
 The intent is that a pet left at home is calmer, sleeps better, and plays more freely, while a pet taken somewhere unfamiliar becomes more anxious and restless.
+
+### Sickness
+
+Your pet can become ill if they aren't taken care of. For example, if you feed them too many snacks in a row, leave them outside in the rain/snow, or don't maintain their fullness and cleanliness, then your pet may become increasingly sick.
+
+When they're sick, squiggely lines appear above their head and they will exhibit fewer behaviors. If they're very sick then they might just want to sulk around and rest.
+
+To care for a sick pet and nurture them back to health, make sure they're well fed and groomed, and let them sleep to recover, ideally in the bedroom. You can also buy medicine at the store. If you feed your pet medicine then they'll get a boost to their recovery the next time they rest. Extra medicine doesn't stack, so just give them one dose between naps.
 
 ## Controls
 
