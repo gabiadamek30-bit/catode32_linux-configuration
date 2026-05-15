@@ -47,6 +47,18 @@ class BehaviorManager:
         'greeting':      ('entities.behaviors.greeting',      'GreetingBehavior'),
     }
 
+    # Outdoor scenes for sickness weather accumulation.
+    _SICK_OUTDOOR = frozenset(('outside', 'treehouse'))
+
+    # Behaviors blocked from auto-selection by sickness tier.
+    # Each set is additive — clearly sick also excludes everything in mild.
+    _SICK_MILD_BLOCKED = frozenset((
+        'zoomies', 'mischief', 'hunting', 'investigating', 'observing', 'playing',
+    ))
+    _SICK_CLEAR_BLOCKED = frozenset((
+        'lounging', 'self_grooming', 'pacing', 'vocalizing', 'hiding',
+    ))
+
     # Ordered tuple of auto-selectable behavior names. Built once at class definition;
     # can_trigger_<name> and priority_<name> are looked up via getattr at runtime.
     _AUTO_SELECT_NAMES = (
@@ -95,8 +107,11 @@ class BehaviorManager:
         """
         if context:
             cb = self._character.current_behavior
-            if cb and hasattr(cb, '_behavior_name'):
-                context.record_behavior(cb._behavior_name)
+            completing = getattr(cb, '_behavior_name', None) if cb else None
+            if completing:
+                context.record_behavior(completing)
+            if completing not in ('sleeping', 'napping'):
+                self._apply_sickness_accumulation(context)
 
         if name is None:
             name, kwargs = self._auto_select(context)
@@ -233,7 +248,17 @@ class BehaviorManager:
 
         # Random meander (special case — checked before main selection)
         # Skip when critically hungry so the pet focuses on feeding itself.
-        if context.fullness >= 5 and self.can_trigger_meandering(context) and random.random() <= 0.2:
+        # Weight scaled down by sickness — very sick cats rarely wander.
+        _s = getattr(context, 'sickness', 0.0)
+        if _s >= 8.0:
+            _meander_p = 0.02
+        elif _s >= 5.0:
+            _meander_p = 0.06
+        elif _s >= 2.0:
+            _meander_p = 0.12
+        else:
+            _meander_p = 0.2
+        if context.fullness >= 5 and self.can_trigger_meandering(context) and random.random() <= _meander_p:
             print("\033[32mRandomly meandering....\033[0m")
             return 'meandering', {}
 
@@ -255,6 +280,8 @@ class BehaviorManager:
 
         candidates = []
         for name in self._AUTO_SELECT_NAMES:
+            if self._sick_blocks(name, context):
+                continue
             if getattr(self, 'can_trigger_' + name)(context):
                 candidates.append(name)
 
@@ -267,9 +294,14 @@ class BehaviorManager:
 
         # Penalize recently completed behaviors to prevent loops.
         # Most recent (index 0) gets +50, next +40, down to +10 at index 4.
+        # Sick pets get half the recency penalty for sleep/nap so they rest more.
+        _sick = getattr(context, 'sickness', 0.0) >= 2.0
         for i, recent in enumerate(context.recent_behaviors):
             if recent in priorities:
-                priorities[recent] += 50 - i * 10
+                penalty = 50 - i * 10
+                if _sick and recent in ('sleeping', 'napping'):
+                    penalty //= 2
+                priorities[recent] += penalty
 
         for name in sorted(candidates, key=lambda n: priorities[n]):
             recent_marker = ""
@@ -369,26 +401,76 @@ class BehaviorManager:
         return 'go_to', {'target_x': target_x, 'speed': 12, 'pending_scene': chosen}
 
     # ------------------------------------------------------------------
+    # Sickness helpers
+    # ------------------------------------------------------------------
+
+    def _apply_sickness_accumulation(self, ctx):
+        """Accumulate sickness after a behavior completes based on weather and fullness."""
+        delta = 0.0
+        if getattr(ctx, 'last_main_scene', None) in self._SICK_OUTDOOR:
+            weather = ctx.environment.get('weather', 'Clear')
+            if weather == 'Storm':
+                delta += 0.5
+            elif weather in ('Rain', 'Snow'):
+                delta += 0.25
+        if ctx.fullness < 10.0:
+            delta += 0.25
+        if ctx.cleanliness < 15.0:
+            delta += 0.25
+        if delta > 0.0:
+            ctx.sickness = min(10.0, ctx.sickness + delta)
+            print("[Sickness] +%.2f -> %.2f" % (delta, ctx.sickness))
+
+    def _sick_blocks(self, name, ctx):
+        """Return True if sickness tier prevents this behavior from auto-selecting."""
+        s = getattr(ctx, 'sickness', 0.0)
+        if s < 2.0:
+            return False
+        if name in self._SICK_MILD_BLOCKED:
+            print("[Sickness] Blocking '%s' (sickness=%.2f)" % (name, s))
+            return True
+        if s >= 5.0 and name in self._SICK_CLEAR_BLOCKED:
+            print("[Sickness] Blocking '%s' (sickness=%.2f)" % (name, s))
+            return True
+        return False
+
+    # ------------------------------------------------------------------
     # can_trigger methods
     # ------------------------------------------------------------------
 
     def can_trigger_sleeping(self, ctx):
-        h = ctx.environment.get('time_hours', 12)
-        in_bedroom = getattr(ctx, 'last_main_scene', None) == 'bedroom'
-        threshold = 70 if (h >= 21 or h < 6) else 40
-        if in_bedroom:
-            threshold += 20
+        s = getattr(ctx, 'sickness', 0.0)
+        if s >= 8.0:
+            return True
+        if s >= 5.0:
+            threshold = 95
+        elif s >= 2.0:
+            threshold = 75
+        else:
+            h = ctx.environment.get('time_hours', 12)
+            in_bedroom = getattr(ctx, 'last_main_scene', None) == 'bedroom'
+            threshold = 70 if (h >= 21 or h < 6) else 40
+            if in_bedroom:
+                threshold += 20
         trigger = ctx.energy < threshold
         if not trigger:
             print("Skipping sleeping. Energy: %6.4f" % ctx.energy)
         return trigger
 
     def can_trigger_napping(self, ctx):
-        h = ctx.environment.get('time_hours', 12)
-        in_bedroom = getattr(ctx, 'last_main_scene', None) == 'bedroom'
-        threshold = 85 if (h >= 21 or h < 6) else 60
-        if in_bedroom:
-            threshold += 20
+        s = getattr(ctx, 'sickness', 0.0)
+        if s >= 8.0:
+            return True
+        if s >= 5.0:
+            threshold = 97
+        elif s >= 2.0:
+            threshold = 85
+        else:
+            h = ctx.environment.get('time_hours', 12)
+            in_bedroom = getattr(ctx, 'last_main_scene', None) == 'bedroom'
+            threshold = 85 if (h >= 21 or h < 6) else 60
+            if in_bedroom:
+                threshold += 20
         trigger = ctx.energy < threshold
         if not trigger:
             print("Skipping napping. Energy: %6.4f" % ctx.energy)

@@ -16,6 +16,9 @@ class IdleBehavior(BaseBehavior):
 
     NAME = "idle"
 
+    # Used when sickness >= 2.0, overrides all other pose selection.
+    SICK_POSES = ("laying.side.sick",)
+
     # Always available regardless of stats
     NEUTRAL_POSES = (
         "sitting.side.neutral",
@@ -134,6 +137,8 @@ class IdleBehavior(BaseBehavior):
     def _get_pose_set(self):
         ctx = self._character.context
         if ctx is not None:
+            if getattr(ctx, 'sickness', 0.0) >= 2.0:
+                return self.SICK_POSES
             if (ctx.fullness >= 50 and ctx.comfort >= 50
                     and ctx.affection >= 60 and ctx.serenity >= 60):
                 return self.HAPPY_POSES

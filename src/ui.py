@@ -52,12 +52,17 @@ class BurstEffect:
         return bool(self._groups)
 
     def trigger(self, anchor_x=0, anchor_y=0, count=5,
-                spread_x=35, spread_y_min=-50, spread_y_max=-20):
-        """Spawn a burst group centred at (anchor_x, anchor_y)."""
+                spread_x=35, spread_y_min=-50, spread_y_max=-20, icon=None):
+        """Spawn a burst group centred at (anchor_x, anchor_y).
+
+        icon: optional sprite dict to draw instead of the default BURST1 sparkle.
+              If the sprite has fill_frames, those are used.
+        """
         self._groups.append({
             'timer': 0.0,
             'ax': anchor_x,
             'ay': anchor_y,
+            'icon': icon,
             'bursts': [
                 {
                     'dx': random.randint(-spread_x, spread_x),
@@ -87,6 +92,7 @@ class BurstEffect:
         w = BURST1['width']
         h = BURST1['height']
         for g in self._groups:
+            icon = g.get('icon')
             ax = base_x + g['ax']
             ay = base_y + g['ay']
             timer = g['timer']
@@ -95,11 +101,19 @@ class BurstEffect:
                 if elapsed < 0 or elapsed >= _BURST_TOTAL:
                     continue
                 fi = min(int(elapsed / _BURST_FRAME_DUR), len(frames) - 1)
-                renderer.draw_sprite(
-                    frames[fi], w, h,
-                    ax + burst['dx'] - hw, ay + burst['dy'] - hh,
-                    transparent=True, transparent_color=0,
-                )
+                bx = ax + burst['dx']
+                by = ay + burst['dy']
+                if icon is not None:
+                    renderer.draw_sprite_obj(
+                        icon, bx - icon['width'] // 2, by - icon['height'] // 2,
+                        frame=min(fi, len(icon['frames']) - 1),
+                    )
+                else:
+                    renderer.draw_sprite(
+                        frames[fi], w, h,
+                        bx - hw, by - hh,
+                        transparent=True, transparent_color=0,
+                    )
 
 
 class OverlayManager:

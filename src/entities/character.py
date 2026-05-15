@@ -3,6 +3,7 @@ from entities.entity import Entity
 from assets.character import POSES
 from sprite_transform import mirror_sprite_h
 from ui import BurstEffect
+from assets.effects import SWEAT
 
 def get_pose(pose_name):
     """Get a pose by dot-notation name (e.g., 'sitting.side.neutral').
@@ -56,6 +57,7 @@ class CharacterEntity(Entity):
 
         # Burst sparkle effects (played via play_bursts())
         self._burst_effect = BurstEffect()
+        self._sweat_timer = 0.0
         if context:
             from behavior_manager import BehaviorManager
             self.behavior_manager = BehaviorManager(self)
@@ -115,9 +117,12 @@ class CharacterEntity(Entity):
         index = int(counter) % self._get_total_frames(sprite)
         return index if index < frame_count else 0
 
-    def play_bursts(self, count=5):
-        """Trigger sparkle burst effects scattered around the pet."""
-        self._burst_effect.trigger(count=count)
+    def play_bursts(self, count=5, icon=None):
+        """Trigger burst effects scattered around the pet.
+
+        icon: optional sprite dict to draw instead of the default sparkle.
+        """
+        self._burst_effect.trigger(count=count, icon=icon)
 
     def update(self, dt):
         """Update animation counters and the current behavior."""
@@ -132,6 +137,7 @@ class CharacterEntity(Entity):
         self.anim_tail = (self.anim_tail + dt * pose["tail"].get("speed", 1)) % self._get_total_frames(pose["tail"])
 
         self._burst_effect.update(dt)
+        self._sweat_timer += dt
 
         if self.current_behavior and self.context:
             self.current_behavior.update(dt)
@@ -256,6 +262,24 @@ class CharacterEntity(Entity):
         # Draw active behavior's visual effects (bubbles, etc.)
         if self.current_behavior:
             self.current_behavior.draw(renderer, x, y, mirror)
+
+        # Draw sweat overlay based on sickness level and current behavior
+        ctx = self.context
+        if ctx:
+            sickness = getattr(ctx, 'sickness', 0.0)
+            beh_name = getattr(ctx, 'current_behavior_name', '')
+            threshold = 2.0 if beh_name in ('sleeping', 'napping') else 6.0
+            if sickness >= threshold:
+                sweat_frame = int(self._sweat_timer * 2.0) % len(SWEAT["frames"])
+                if eyes is not None:
+                    anchor_x = head_x + self._get_point(head, "eye_x", head_frame, mirror)
+                    anchor_y = head_y + self._get_point(head, "eye_y", head_frame)
+                else:
+                    anchor_x = head_root_x
+                    anchor_y = head_root_y
+                sweat_x = anchor_x - SWEAT["width"] // 2
+                sweat_y = anchor_y - 24
+                renderer.draw_sprite_obj(SWEAT, sweat_x, sweat_y, frame=sweat_frame)
 
         # Draw burst sparkle effects
         self._burst_effect.draw(renderer, x, y)

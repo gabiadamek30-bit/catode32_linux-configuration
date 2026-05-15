@@ -23,6 +23,10 @@ STATS = [
     ("Mischief",      "mischievousness"),
 ]
 
+_DEBUG_ONLY = [
+    ("Sickness",      "sickness",      0,   10),
+]
+
 
 class DebugStatsScene(Scene):
     """Debug scene for directly editing pet stats"""
@@ -46,6 +50,12 @@ class DebugStatsScene(Scene):
             )
             for name, key in STATS
         ]
+        for name, key, mn, mx in _DEBUG_ONLY:
+            items.append(SettingItem(
+                name, key,
+                min_val=mn, max_val=mx, step=1,
+                value=int(getattr(self.context, key, 0))
+            ))
         self.settings.open(items, transition=False)
 
     def exit(self):

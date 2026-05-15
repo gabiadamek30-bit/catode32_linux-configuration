@@ -161,6 +161,16 @@ class EatingBehavior(BaseBehavior):
             bonus['loyalty'] = 0.5 if repeat_count == 0 else 0.15
 
         context.record_meal(self._food_type)
+
+        if self._food_type in self.SNACK_TYPES:
+            snack_count = sum(1 for m in context.recent_meals if m in self.SNACK_TYPES)
+            if snack_count >= 5:
+                context.sickness = min(10.0, context.sickness + 2.0)
+                print("[Sickness] Snack overload (5/5) +2.0 -> %.2f" % context.sickness)
+            elif snack_count >= 4:
+                context.sickness = min(10.0, context.sickness + 1.0)
+                print("[Sickness] Too many snacks (4/5) +1.0 -> %.2f" % context.sickness)
+
         bonus = self.apply_location_bonus(context, bonus)
         if self._food_type in self.SNACK_TYPES:
             fav     = getattr(context, 'fav_snack', None)

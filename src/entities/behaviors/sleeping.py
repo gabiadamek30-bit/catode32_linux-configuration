@@ -69,6 +69,24 @@ class SleepingBehavior(BaseBehavior):
             bonus["fulfillment"] = bonus.get("fulfillment", 0) + 0.5 * fed_factor
             bonus["loyalty"] = bonus.get("loyalty", 0) + 0.15 * fed_factor
 
+        medicine = getattr(context, 'medicine_pending', False)
+        sickness = getattr(context, 'sickness', 0.0)
+        if sickness >= 8.0:
+            bonus['energy'] = bonus.get('energy', 0) * 0.35
+        elif sickness >= 5.0:
+            bonus['energy'] = bonus.get('energy', 0) * 0.5
+        elif sickness >= 2.0:
+            bonus['energy'] = bonus.get('energy', 0) * 0.7
+        print("[Sickness] Sleep bonus: sickness=%.2f medicine_pending=%s" % (sickness, medicine))
+        if medicine:
+            context.medicine_pending = False
+        if sickness > 0.0:
+            recovery = 3.0 if medicine else 1.0
+            context.sickness = max(0.0, sickness - recovery)
+            print("[Sickness] Sleep recovery -%.1f -> %.2f" % (recovery, context.sickness))
+        else:
+            print("[Sickness] Sleep recovery skipped (sickness=0)")
+
         return self.apply_location_bonus(context, bonus)
 
     def apply_location_bonus(self, context, bonus):
@@ -190,3 +208,4 @@ class SleepingBehavior(BaseBehavior):
             y = int(base_y + i * z_spacing_y + wave_offset)
 
             renderer.draw_text("z", x, y)
+

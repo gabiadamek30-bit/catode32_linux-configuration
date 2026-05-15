@@ -213,6 +213,7 @@ def do_reset(ctx, delete_save):
         "seeds":      {"cat_grass": 0, "sunflower": 0, "rose": 0, "tulip": 0},
         "tools":      {"watering_can": False, "spade": False},
         "fertilizer": 0,
+        "medicine": 0,
     }
 
     # Living plants placed by the player (and the developer-seeded starters).
@@ -253,6 +254,11 @@ def do_reset(ctx, delete_save):
 
     # Recent meals for variety tracking (most recent first, persisted)
     ctx.recent_meals = []
+
+    # Sickness level (0.0–10.0 hard cap). Accumulates from neglect, weather, snack abuse.
+    ctx.sickness = 0.0
+    # True when the player has given medicine; cleared after the next sleep/nap applies the bonus.
+    ctx.medicine_pending = False
 
     # Name of the most recently started behavior (not persisted, used to restore on scene re-entry)
     ctx.current_behavior_name = None

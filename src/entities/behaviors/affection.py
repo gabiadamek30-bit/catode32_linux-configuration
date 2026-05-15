@@ -80,6 +80,12 @@ class AffectionBehavior(BaseBehavior):
 
     NAME = "affection"
 
+    # Laying poses used when the pet is sick (accepts affection but stays down).
+    SICK_POSES = (
+        "laying.side.sulking",
+        "laying.side.sulking2",
+    )
+
     # Laying-only poses for rejection (hand position adjusts to match).
     REJECTION_POSES = (
         "laying.side.neutral2",
@@ -116,6 +122,7 @@ class AffectionBehavior(BaseBehavior):
         self._duration = 8.0
         self._variant = "pets"
         self._rejecting = False
+        self._sick = False
 
     def get_completion_bonus(self, context):
         bonus = dict(VARIANTS[self._variant].get("stats", {}))
@@ -150,12 +157,17 @@ class AffectionBehavior(BaseBehavior):
         context = self._character.context
         if context:
             self._rejecting = random.random() < self._rejection_chance(context)
+            self._sick = getattr(context, 'sickness', 0.0) >= 2.0
         else:
             self._rejecting = False
+            self._sick = False
 
         if self._rejecting:
             self._bubble = None
             self._character.set_pose(random.choice(self.REJECTION_POSES))
+        elif self._sick:
+            self._bubble = config["bubble"]
+            self._character.set_pose(random.choice(self.SICK_POSES))
         else:
             self._bubble = config["bubble"]
             self._character.set_pose(config["pose"])
@@ -185,7 +197,7 @@ class AffectionBehavior(BaseBehavior):
         if self._active and self._bubble:
             draw_bubble(renderer, self._bubble, char_x, char_y, self._progress, mirror)
 
-        hand_y_adjust = self.REJECTION_HAND_Y_OFFSET if self._rejecting else 0
+        hand_y_adjust = self.REJECTION_HAND_Y_OFFSET if (self._rejecting or self._sick) else 0
 
         if self._active and self._variant == "pets":
             sweep_speed = 1.2

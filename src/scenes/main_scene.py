@@ -10,7 +10,7 @@ from plant_renderer import register_plant_draws, invalidate_plant_cache
 from gardening_ui import PlacementMode, PlantSelectionMode
 from assets.icons import (TOYS_ICON, HEART_ICON, HEART_BUBBLE_ICON, HAND_ICON,
                           KIBBLE_ICON, TOY_ICONS, SNACK_ICONS, FISH_ICON,
-                          CHICKEN_ICON, MEAL_ICON, TREES_ICON)
+                          CHICKEN_ICON, MEAL_ICON, TREES_ICON, PILL_ICON, HEAL)
 from assets.items import CHEW_STICKS, FOOD_BOWL, FOOD_BOWL_ALT, FOOD_BOWL_KIBBLE, SNACK_PUREE, TREAT_PILE
 from ui import draw_bubble, Popup, BurstEffect
 
@@ -361,11 +361,18 @@ class MainScene(Scene):
             for name, key in _snack_defs
             if food_stock.get(key, 0) > 0
         ]
+        medicine_count = self.context.inventory.get('medicine', 0)
         feed_items = []
         if meal_items:
             feed_items.append(MenuItem("Meals", icon=MEAL_ICON, submenu=meal_items))
         if snack_items:
             feed_items.append(MenuItem("Snacks", icon=KIBBLE_ICON, submenu=snack_items))
+        if medicine_count > 0:
+            feed_items.append(MenuItem(
+                f"Medicine ({medicine_count})", icon=PILL_ICON,
+                action=("give_medicine",),
+                confirm="Give medicine?",
+            ))
         feed_items.append(MenuItem("Store...", action=("go_store",)))
 
         toy_items = [
@@ -470,6 +477,15 @@ class MainScene(Scene):
             self.character.trigger('affection', variant='scratching')
         elif action_type == "psst":
             self.character.trigger('attention', variant='psst')
+        elif action_type == "give_medicine":
+            inv = self.context.inventory
+            if inv.get('medicine', 0) > 0:
+                first_dose = not self.context.medicine_pending
+                inv['medicine'] -= 1
+                self.context.medicine_pending = True
+                print("[Medicine] Administered. medicine_pending=True, stock=%d" % inv['medicine'])
+                if first_dose:
+                    self.character.play_bursts(count=10, icon=HEAL)
         elif action_type == "snack":
             snack_key = action[1]
             self._orient_for_eating()

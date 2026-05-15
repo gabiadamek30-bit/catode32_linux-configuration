@@ -1,6 +1,10 @@
 _SAVE_PATH = '/save.json'
 
 
+_SICKNESS_AFFECTED_STATS = frozenset((
+    'serenity', 'fulfillment', 'playfulness', 'comfort', 'energy', 'fitness', 'focus',
+))
+
 _STAT_KEYS = (
     'fullness', 'energy', 'comfort', 'playfulness', 'focus',
     'fulfillment', 'cleanliness', 'curiosity', 'sociability',
@@ -69,6 +73,14 @@ class GameContext:
             if delta > 0:
                 room = (100.0 - current) / 100.0
                 delta *= room ** EXP
+                if stat in _SICKNESS_AFFECTED_STATS:
+                    s = getattr(self, 'sickness', 0.0)
+                    if s >= 8.0:
+                        delta *= 0.4
+                    elif s >= 5.0:
+                        delta *= 0.6
+                    elif s >= 2.0:
+                        delta *= 0.8
             else:
                 room = current / 100.0
                 delta *= room ** EXP
@@ -124,6 +136,9 @@ class GameContext:
                 'seeds': self.inventory["seeds"],
                 'tools': self.inventory["tools"],
                 'fertilizer': self.inventory.get("fertilizer", 0),
+                'medicine': self.inventory.get("medicine", 0),
+                'sickness': self.sickness,
+                'medicine_pending': self.medicine_pending,
                 'plants': self.plants,
                 'next_plant_id': self.next_plant_id,
                 'pet_seed': self.pet_seed,
@@ -211,6 +226,10 @@ class GameContext:
                 self.inventory['tools'].update(data['tools'])
             if 'fertilizer' in data:
                 self.inventory['fertilizer'] = data['fertilizer']
+            self.inventory['medicine'] = data.get('medicine', 0)
+            self.sickness = data.get('sickness', 0.0)
+            self.medicine_pending = data.get('medicine_pending', False)
+            print("[Sickness] Loaded: sickness=%.2f medicine_pending=%s" % (self.sickness, self.medicine_pending))
             # Plants: if absent from save (old save file), keep the starter plants
             # that reset() already populated.
             if 'plants' in data:

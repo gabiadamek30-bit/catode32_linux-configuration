@@ -77,6 +77,7 @@ _TRIP_ITEMS = (
 )
 
 _FERTILIZER_COST = 25
+_MEDICINE_COST = 50
 
 # (display_name, full_name, inventory_key, cost)
 _TOOL_ITEMS = (
@@ -143,13 +144,14 @@ class StoreScene(Scene):
         trip_items = [self._trip_item(label, full, scene, cost)
                       for label, full, scene, cost in _TRIP_ITEMS]
         return [
-            MenuItem("Food",    submenu=food_items),
-            MenuItem("Snacks",  submenu=snack_items),
-            MenuItem("Toys",    submenu=toy_items),
-            MenuItem("Garden",  submenu=gardening_items),
-            MenuItem("Service", submenu=service_items),
-            MenuItem("Trips",   submenu=trip_items),
-            MenuItem("Exit",    action=("leave",)),
+            MenuItem("Food",     submenu=food_items),
+            MenuItem("Snacks",   submenu=snack_items),
+            MenuItem("Toys",     submenu=toy_items),
+            MenuItem("Garden",   submenu=gardening_items),
+            MenuItem("Service",  submenu=service_items),
+            MenuItem("Trips",    submenu=trip_items),
+            self._medicine_item(),
+            MenuItem("Exit",     action=("leave",)),
         ]
 
     def _food_item(self, name, key, cost):
@@ -208,6 +210,13 @@ class StoreScene(Scene):
             return MenuItem(label, action=("buy_trip", scene_name, cost),
                             confirm=f"A trip to the {full.lower()}: {cost}c")
         return MenuItem(label, action=("no_funds",), confirm="Can't afford!")
+
+    def _medicine_item(self):
+        cost = _MEDICINE_COST
+        if self.context.coins >= cost:
+            return MenuItem("Meds.", action=("buy_medicine", cost),
+                            confirm=f"Medicine: {cost}c")
+        return MenuItem("Medicine", action=("no_funds",), confirm="Can't afford!")
 
     def _tool_item(self, label, full, key, cost):
         owned = self.context.inventory['tools'].get(key, False)
@@ -409,6 +418,17 @@ class StoreScene(Scene):
                 self.context.coins -= cost
                 print(f"[Store] Bought trip to {scene_name} for {cost}c")
                 return ('change_scene', scene_name)
+            else:
+                self.menu.open(self._build_menu())
+
+        elif kind == "buy_medicine":
+            _, cost = action
+            if self.context.coins >= cost:
+                self.context.coins -= cost
+                self.context.inventory['medicine'] = self.context.inventory.get('medicine', 0) + 1
+                print("[Store] Bought medicine for %dc" % cost)
+                self._purchase_msg = "Medicine purchased!"
+                self._popup.set_text(self._purchase_msg, center=True)
             else:
                 self.menu.open(self._build_menu())
 
