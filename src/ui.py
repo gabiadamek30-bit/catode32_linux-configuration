@@ -14,6 +14,9 @@ from assets.effects import (
     BUBBLE_MINICAT,
     BUBBLE_MINIGAME,
     BUBBLE_HOME,
+    BUBBLE_HOT,
+    BUBBLE_WET,
+    BUBBLE_COLD,
     BURST1,
 )
 
@@ -32,6 +35,9 @@ BUBBLE_SPRITES = {
     "bored": BUBBLE_MINIGAME,
     "lonely": BUBBLE_MINICAT,
     "home": BUBBLE_HOME,
+    "hot":  BUBBLE_HOT,
+    "wet":  BUBBLE_WET,
+    "cold": BUBBLE_COLD,
 }
 
 

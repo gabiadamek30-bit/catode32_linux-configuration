@@ -37,6 +37,15 @@ class VocalizingBehavior(BaseBehavior):
         if getattr(context, 'wants_to_go_home', False):
             print("[vocalizing] wants to go home")
             return "home"
+        scene = getattr(context, 'last_main_scene', None)
+        if scene in ('outside', 'treehouse'):
+            weather = context.environment.get('weather', 'Clear')
+            if weather in ('Rain', 'Storm'):
+                print("[vocalizing] weather complaint: wet")
+                return "wet"
+            if weather == 'Snow':
+                print("[vocalizing] weather complaint: cold")
+                return "cold"
         needs = [
             (context.fullness, "hunger"),
             (context.comfort, "discomfort"),

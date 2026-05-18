@@ -3,6 +3,7 @@ from scenes.main_scene import MainScene
 from environment import Environment, LAYER_BACKGROUND, LAYER_MIDGROUND, LAYER_FOREGROUND
 from entities.character import CharacterEntity
 from assets.furniture import CAT_BED_SIDE
+from assets.nature import COBWEB
 from sky import SkyRenderer
 
 
@@ -122,3 +123,4 @@ class TreehouseScene(MainScene):
         renderer.draw_rect(180 - offset, -1, 10, 61, filled=True, color=0)
         renderer.draw_rect(0 - offset - 1, -1, 10, 61)
         renderer.draw_rect(180 - offset, -1, 10, 61)
+        renderer.draw_sprite_obj(COBWEB, 156 - offset, 0)
