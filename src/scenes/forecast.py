@@ -1,5 +1,6 @@
 from scene import Scene
 from weather_system import WeatherSystem
+from temperature_system import get_temperature
 from assets.icons import (
     WEATHER_CLEAR, WEATHER_CLOUDY, WEATHER_OVERCAST,
     WEATHER_RAIN, WEATHER_STORM, WEATHER_SNOW, WEATHER_WINDY,
@@ -23,6 +24,7 @@ _INTERVAL_H = 3        # hours between slots
 _VIS_COLS = 128 // _COL_W           # = 4 full columns visible
 
 
+
 def _fmt_hour(h):
     if h == 0:
         return "12A"
@@ -32,6 +34,10 @@ def _fmt_hour(h):
         return "12P"
     else:
         return "%dP" % (h - 12)
+
+
+def _fmt_temp(t):
+    return "%dC" % int(round(t))
 
 
 _NIGHT_ICONS = {
@@ -58,11 +64,12 @@ def _get_icon(weather, hour):
     return _DAY_ICONS[weather]
 
 
-def _build_slots(forecast, cur_hour, cur_min):
+def _build_slots(forecast, cur_hour, cur_min, cur_day, season_offset, pet_seed):
     """Build _NUM_SLOTS slots aligned to absolute 3-hour boundaries (12a, 3a, 6a, ...).
 
     Slot 0 is the 3-hour bin containing the current time.  The shower flag is
     True if *any* forecast transition within the slot's window has a shower.
+    Each slot is a tuple of (hour, weather, shower, temp_c).
     """
     cur_total = cur_hour * 60 + cur_min
     slot0_start = (cur_total // (_INTERVAL_H * 60)) * (_INTERVAL_H * 60)
@@ -73,7 +80,9 @@ def _build_slots(forecast, cur_hour, cur_min):
         slot_start = slot0_start + i * _INTERVAL_H * 60 - cur_total
         slot_end   = slot_start + _INTERVAL_H * 60
         eff_start  = max(0, slot_start)   # can't sample before the present
-        slot_hour  = ((slot0_start // 60) + i * _INTERVAL_H) % 24
+        slot_abs   = slot0_start + i * _INTERVAL_H * 60   # absolute minutes since midnight
+        slot_hour  = (slot_abs // 60) % 24
+        slot_day   = cur_day + slot_abs // (24 * 60)
 
         cumul   = 0
         weather = forecast[0][0] if forecast else "Clear"
@@ -89,7 +98,8 @@ def _build_slots(forecast, cur_hour, cur_min):
             if cumul >= slot_end:
                 break
 
-        slots.append((slot_hour, weather, shower))
+        temp = get_temperature(slot_day, season_offset, slot_hour, weather, pet_seed)
+        slots.append((slot_hour, weather, shower, temp))
     return slots
 
 
@@ -109,9 +119,15 @@ class ForecastScene(Scene):
 
     def enter(self):
         forecast = _WEATHER_SYSTEM.get_forecast(self.context.environment, hours=72)
-        cur_hour = self.context.environment.get('time_hours', 12)
-        cur_min = int(self.context.environment.get('time_minutes', 0))
-        self._slots = _build_slots(forecast, cur_hour, cur_min)
+        env = self.context.environment
+        cur_hour = env.get('time_hours', 12)
+        cur_min = int(env.get('time_minutes', 0))
+        cur_day = env.get('day_number', 0)
+        season_offset = env.get('season_offset', 0)
+        pet_seed = getattr(self.context, 'pet_seed', 0)
+        self._slots = _build_slots(
+            forecast, cur_hour, cur_min, cur_day, season_offset, pet_seed,
+        )
         self._cursor = 0
         self._scroll = 0
 
@@ -131,14 +147,14 @@ class ForecastScene(Scene):
         return None
 
     def draw(self):
-
-        # Header: name of the highlighted slot's weather
-        _, sel_weather, _ = self._slots[self._cursor]
-        self.renderer.draw_text(sel_weather, 0, 0)
+        # Header: "SeasonAbbr - WeatherName" for the highlighted slot
+        _, sel_weather, _, _ = self._slots[self._cursor]
+        season = self.context.environment.get('season', 'Summer')
+        self.renderer.draw_text(season + ": " + sel_weather, 0, 0)
         self.renderer.draw_line(0, 9, 127, 9)
 
         # Hourly columns — one extra to fill partial column at the right edge
-        for i, (hour, weather, shower) in enumerate(
+        for i, (hour, weather, shower, _temp) in enumerate(
                 self._slots[self._scroll: self._scroll + _VIS_COLS + 1]):
             col_x = i * _COL_W
 
@@ -166,8 +182,13 @@ class ForecastScene(Scene):
         hl_x = (self._cursor - self._scroll) * _COL_W
         self.renderer.draw_rect(hl_x, _HL_Y, _COL_W, _HL_H)
 
-        # Scroll indicators at bottom of screen
+        # Scroll indicators and centred temperature for the selected slot
         if self._scroll > 0:
             self.renderer.draw_text("<", 0, 55)
         if self._scroll + _VIS_COLS < len(self._slots):
             self.renderer.draw_text(">", 120, 55)
+
+        _, _, _, sel_temp = self._slots[self._cursor]
+        temp_str = _fmt_temp(sel_temp)
+        temp_x = (128 - len(temp_str) * 8) // 2
+        self.renderer.draw_text(temp_str, temp_x, 55)

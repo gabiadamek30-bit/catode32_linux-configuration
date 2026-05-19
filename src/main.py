@@ -112,7 +112,10 @@ class Game:
             self.weather_system.init_environment(self.context.environment, self.context.pet_seed)
 
         self.time_system = TimeSystem()
+        self.time_system.pet_seed = self.context.pet_seed
         self.time_system.update_moon_phase(self.context.environment)
+        self.time_system.update_season(self.context.environment)
+        self.time_system.update_temperature(self.context.environment)
 
         self.espnow_handler = EspNowHandler(espnow, self.scene_manager) if espnow else None
         self.visit_manager = VisitManager(self.context, self.scene_manager) if espnow else None

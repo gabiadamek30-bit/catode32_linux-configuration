@@ -39,6 +39,13 @@ class VocalizingBehavior(BaseBehavior):
             return "home"
         scene = getattr(context, 'last_main_scene', None)
         if scene in ('outside', 'treehouse'):
+            temp = context.environment.get('temperature', 20.0)
+            if temp < 2.0:
+                print("[vocalizing] temp complaint: cold (%.1fC)" % temp)
+                return "cold"
+            if temp > 30.0:
+                print("[vocalizing] temp complaint: hot (%.1fC)" % temp)
+                return "hot"
             weather = context.environment.get('weather', 'Clear')
             if weather in ('Rain', 'Storm'):
                 print("[vocalizing] weather complaint: wet")

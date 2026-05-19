@@ -356,7 +356,9 @@ class BehaviorManager:
             return None  # Too exhausted to go anywhere
 
         weather = ctx.environment.get('weather', 'Clear')
+        temp = ctx.environment.get('temperature', 20.0)
         outdoor_bad = weather in ('Rain', 'Storm', 'Snow')
+        temp_extreme = temp < -1.0 or temp > 33.0   # retreat threshold
         currently_outdoor = current in self._SICK_OUTDOOR
 
         # Compute per-destination weights
@@ -373,9 +375,15 @@ class BehaviorManager:
             if dest in ('outside', 'treehouse') and outdoor_bad:
                 # Bad weather discourages outdoor trips
                 w *= 0.2
+            if dest in ('outside', 'treehouse') and temp_extreme:
+                # Extreme temperature discourages going/staying outside
+                w *= 0.2
             if currently_outdoor and outdoor_bad and dest == 'inside':
                 # Pet wants to get indoors when caught outside in bad weather
                 w *= 3.0
+            if currently_outdoor and temp_extreme and dest == 'inside':
+                # Extreme temperature also drives the pet inside
+                w *= 2.5
             weights.append(w)
 
         # Boost effective probability when the strongest pull is high
@@ -385,6 +393,10 @@ class BehaviorManager:
         if currently_outdoor and outdoor_bad:
             # Pet urgently wants to leave — override probability by severity
             floor_p = 0.70 if weather == 'Storm' else 0.45
+            effective_p = max(effective_p, floor_p)
+
+        if currently_outdoor and temp_extreme:
+            floor_p = 0.35
             effective_p = max(effective_p, floor_p)
 
         roll = random.random()
@@ -662,8 +674,15 @@ class BehaviorManager:
             return random.uniform(2, 8)  # very high priority — wins most selection rounds
         if getattr(ctx, 'last_main_scene', None) in self._SICK_OUTDOOR:
             weather = ctx.environment.get('weather', 'Clear')
-            if weather in ('Rain', 'Storm', 'Snow') and 'vocalizing' not in ctx.recent_behaviors:
-                urgency = 1.5 if weather == 'Storm' else 1.0
+            temp = ctx.environment.get('temperature', 20.0)
+            weather_bad = weather in ('Rain', 'Storm', 'Snow')
+            temp_complaint = temp < 2.0 or temp > 30.0   # vocalize threshold
+            if (weather_bad or temp_complaint) and 'vocalizing' not in ctx.recent_behaviors:
+                urgency = 1.0
+                if weather == 'Storm':
+                    urgency = 1.5
+                if temp < -1.0 or temp > 33.0:    # retreat threshold → more urgent
+                    urgency = max(urgency, 2.0)
                 return random.uniform(12, 22) / urgency
         # Outdoors and not recently vocalized: cats are chatty outside —
         # push priority low enough to win selection roughly every ~5 behaviors.

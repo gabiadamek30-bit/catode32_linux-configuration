@@ -350,6 +350,9 @@ class SceneManager:
         location_items.append(MenuItem("Treehouse", icon=TREES_ICON, action=('scene', 'treehouse'), confirm=vac_confirm))
         items.append(MenuItem("Locations", icon=HOUSE_ICON, submenu=location_items))
 
+        # Weather forecast
+        items.append(MenuItem("Forecast", icon=SUN_ICON, action=('scene', 'forecast')))
+
         # Minigames submenu
         minigame_items = []
         minigame_items.append(MenuItem("Zoomies", icon=MINIGAME_ICONS.get("Zoomies"), action=('scene', 'zoomies'), confirm=vac_confirm))
@@ -366,9 +369,6 @@ class SceneManager:
         
         # Store
         items.append(MenuItem("Store", icon=STORE_ICON, action=('scene', 'store')))
-
-        # Weather forecast
-        items.append(MenuItem("Forecast", icon=SUN_ICON, action=('scene', 'forecast')))
 
         # Social / playdate
         items.append(MenuItem("Social", icon=CAT_ICON, action=('scene', 'social')))

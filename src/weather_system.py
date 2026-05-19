@@ -120,9 +120,17 @@ class WeatherSystem:
         is unique, then derives the starting weather and timer from that step.
         The step range (0-16383) keeps us safely within the Markov chain's valid inputs.
         """
+        from time_system import get_season
+
         # Use bits 8-21 of the seed as the starting step offset
         step = (pet_seed >> 8) & 0x3FFF
-        season = environment.get('season', 'Summer')
+
+        # All pets start at the beginning of spring
+        season_offset = 60
+        environment['season_offset'] = season_offset
+        environment['season'] = get_season(0, season_offset)
+
+        season = environment['season']
         weather, duration = _compute_transition(step, 'Clear', season)
         environment['weather'] = weather
         environment['weather_step'] = step + 1
