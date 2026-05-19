@@ -38,7 +38,36 @@ _DURATION_RANGES = {
     "Snow":     ( 90, 240),
 }
 
+# Season-specific transition overrides keyed by (season, current_weather).
+# Falls back to _TRANSITIONS for any unlisted combination.
+# Repeated entries increase that outcome's probability.
+_SEASONAL_TRANSITIONS = {
+    # Spring: more Rain/Storm, more Windy
+    ("Spring", "Clear"):    ("Clear", "Cloudy", "Windy", "Windy"),
+    ("Spring", "Cloudy"):   ("Cloudy", "Clear", "Overcast", "Overcast", "Windy", "Windy"),
+    ("Spring", "Overcast"): ("Overcast", "Cloudy", "Rain", "Rain", "Windy"),
+    ("Spring", "Rain"):     ("Rain", "Rain", "Overcast", "Storm"),
+    ("Spring", "Windy"):    ("Windy", "Windy", "Clear", "Cloudy", "Overcast"),
+
+    # Summer: more Clear/Cloudy, harder to reach Rain
+    ("Summer", "Clear"):    ("Clear", "Clear", "Cloudy", "Windy"),
+    ("Summer", "Cloudy"):   ("Cloudy", "Cloudy", "Clear", "Clear", "Overcast", "Windy"),
+    ("Summer", "Overcast"): ("Overcast", "Cloudy", "Cloudy", "Rain", "Windy"),
+
+    # Fall: more Cloudy/Overcast (trending toward winter) and more Windy
+    ("Fall", "Clear"):      ("Clear", "Cloudy", "Cloudy", "Windy", "Windy"),
+    ("Fall", "Cloudy"):     ("Cloudy", "Cloudy", "Clear", "Overcast", "Overcast", "Windy", "Windy"),
+    ("Fall", "Overcast"):   ("Overcast", "Overcast", "Cloudy", "Rain", "Windy"),
+    ("Fall", "Windy"):      ("Windy", "Windy", "Clear", "Cloudy", "Overcast"),
+
+    # Winter: more Cloudy/Overcast, less Clear
+    ("Winter", "Clear"):    ("Clear", "Cloudy", "Cloudy", "Windy"),
+    ("Winter", "Cloudy"):   ("Cloudy", "Cloudy", "Clear", "Overcast", "Overcast", "Windy"),
+    ("Winter", "Overcast"): ("Overcast", "Overcast", "Cloudy", "Rain", "Windy"),
+}
+
 _COLD_SEASONS = ("Fall", "Winter")
+_SNOW_TEMP_THRESHOLD = 4.0
 
 # Meteor shower constants
 # Large offset so shower PRNG doesn't correlate with weather PRNG at the same step
@@ -74,21 +103,30 @@ def _compute_meteor_shower(step, season):
     return False, 0
 
 
-def _compute_transition(step, current_weather, season):
+def _compute_transition(step, current_weather, season, temperature=None):
     """
-    Given a transition step index, current weather, and season, return
-    (next_weather, duration_minutes) using the seeded PRNG.
+    Given a transition step index, current weather, season, and optional
+    temperature (°C), return (next_weather, duration_minutes).
 
-    The result is fully deterministic for a given (step, current_weather, season).
+    temperature=None is treated as permissive (used during init before
+    temperature is available). Snow is only reachable when temperature is
+    at or below _SNOW_TEMP_THRESHOLD; Rain/Storm transition to Snow instead
+    when cold enough.
     """
     x = _seeded_rand(step)
 
-    options = _TRANSITIONS.get(current_weather, ("Clear",))
-    if current_weather == "Overcast" and season in _COLD_SEASONS:
-        # Extend with a mutable copy so Snow becomes possible
+    options = _SEASONAL_TRANSITIONS.get((season, current_weather))
+    if options is None:
+        options = _TRANSITIONS.get(current_weather, ("Clear",))
+
+    cold_enough = temperature is None or temperature <= _SNOW_TEMP_THRESHOLD
+    if current_weather == "Overcast" and season in _COLD_SEASONS and cold_enough:
         options = options + ("Snow",)
 
     next_weather = options[x % len(options)]
+
+    if cold_enough and next_weather in ("Rain", "Storm"):
+        next_weather = "Snow"
 
     x = _xorshift32(x)
     min_d, max_d = _DURATION_RANGES.get(next_weather, (60, 180))
@@ -160,7 +198,8 @@ class WeatherSystem:
             shower_start, shower_dur = _compute_meteor_shower(step, season)
             if shower_start:
                 shower_timer = max(shower_timer, float(shower_dur))
-            next_weather, duration = _compute_transition(step, current, season)
+            temperature = environment.get('temperature', 20.0)
+            next_weather, duration = _compute_transition(step, current, season, temperature)
             environment['weather'] = next_weather
             environment['weather_step'] = step + 1
             timer += duration
@@ -181,6 +220,8 @@ class WeatherSystem:
         remaining = environment.get('weather_timer', 60.0)
         season = environment.get('season', 'Summer')
         shower_timer = float(environment.get('meteor_shower_timer', 0.0))
+        # Current temperature used as a fixed approximation across all forecast steps.
+        temperature = float(environment.get('temperature', 20.0))
 
         forecast = [(current, int(remaining), shower_timer > 0)]
         total_minutes = remaining
@@ -193,7 +234,7 @@ class WeatherSystem:
             shower_start, shower_dur = _compute_meteor_shower(step, season)
             if shower_start:
                 shower_timer = max(shower_timer, float(shower_dur))
-            next_weather, duration = _compute_transition(step, current, season)
+            next_weather, duration = _compute_transition(step, current, season, temperature)
             forecast.append((next_weather, duration, shower_timer > 0))
             total_minutes += duration
             current = next_weather
