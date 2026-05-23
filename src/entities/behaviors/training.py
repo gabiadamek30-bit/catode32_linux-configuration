@@ -21,27 +21,65 @@ class TrainingBehavior(BaseBehavior):
 
     NAME = "training"
 
-    COMPLETION_BONUS = {
-        # Rapid changers
-        "energy": -3.5,
-        "focus": -2,
-        "playfulness": -6,
-
-        # Medium changers
-        "intelligence": 1.5,
-        "sociability": 2,
-        "fulfillment": 2.5,
-        "courage": 1.75,
-        "couriosity": 1,
-        "maturity": 0.5,
-
-        # Slow changers
-        "fitness": 1,
-
-        # Extra slow changers
-        "loyalty": 1.75,
-        "mischievousness": -0.5,
+    _BONUSES = {
+        "intelligence": {
+            "energy": -3.0,
+            "focus": -1.0,
+            "playfulness": -4.0,
+            "intelligence": 4.0,
+            "couriosity": 2.5,
+            "fulfillment": 2.0,
+            "maturity": 1.0,
+            "courage": 1.0,
+            "sociability": 0.5,
+            "loyalty": 1.0,
+            "mischievousness": -1.0,
+        },
+        "behavior": {
+            "energy": -3.5,
+            "focus": -2.0,
+            "playfulness": -5.0,
+            "loyalty": 3.5,
+            "courage": 2.5,
+            "maturity": 2.0,
+            "sociability": 1.5,
+            "fulfillment": 2.0,
+            "intelligence": 1.0,
+            "fitness": 0.5,
+            "couriosity": 0.5,
+            "mischievousness": -1.5,
+        },
+        "fitness": {
+            "energy": -5.0,
+            "focus": -3.0,
+            "playfulness": -8.0,
+            "fitness": 5.0,
+            "courage": 2.0,
+            "fulfillment": 2.0,
+            "loyalty": 1.0,
+            "maturity": 0.5,
+            "intelligence": 0.5,
+            "sociability": 0.5,
+            "couriosity": 0.5,
+            "mischievousness": -0.5,
+        },
+        "sociability": {
+            "energy": -2.0,
+            "focus": -1.0,
+            "playfulness": -3.0,
+            "sociability": 4.0,
+            "loyalty": 2.5,
+            "fulfillment": 3.0,
+            "courage": 1.5,
+            "couriosity": 1.5,
+            "intelligence": 1.0,
+            "maturity": 0.5,
+            "mischievousness": -0.5,
+        },
     }
+
+    # Fallback if an unrecognised type is passed.
+    COMPLETION_BONUS = _BONUSES["behavior"]
 
     BEGGING_POSES = [
         "begging.side.arm_up",
@@ -83,10 +121,11 @@ class TrainingBehavior(BaseBehavior):
     def get_completion_bonus(self, context):
         if self._rejecting:
             return {}
-        return self.COMPLETION_BONUS
+        return self._BONUSES.get(self._training_type, self.COMPLETION_BONUS)
 
     def __init__(self, character):
         super().__init__(character)
+        self._training_type = "behavior"
         self._rejecting = False
         self.warmup_duration = random.uniform(1.0, 5.0)
         self.train_duration = random.uniform(10.0, 30.0)
@@ -103,9 +142,10 @@ class TrainingBehavior(BaseBehavior):
             return 'playing'
         return None
 
-    def start(self, on_complete=None):
+    def start(self, on_complete=None, training_type="behavior"):
         if self._active:
             return
+        self._training_type = training_type
         super().start(on_complete)
 
         context = self._character.context

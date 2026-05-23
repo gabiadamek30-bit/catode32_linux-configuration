@@ -382,10 +382,10 @@ class MainScene(Scene):
         toy_items.append(MenuItem("Store...", action=("go_store",)))
 
         train_items = [
-            MenuItem("Intelligence", icon=HAND_ICON, action=("train",)),
-            MenuItem("Behavior", icon=HAND_ICON, action=("train",)),
-            MenuItem("Fitness", icon=HAND_ICON, action=("train",)),
-            MenuItem("Sociability", icon=HAND_ICON, action=("train",)),
+            MenuItem("Intelligence", icon=HAND_ICON, action=("train", "intelligence")),
+            MenuItem("Behavior", icon=HAND_ICON, action=("train", "behavior")),
+            MenuItem("Fitness", icon=HAND_ICON, action=("train", "fitness")),
+            MenuItem("Sociability", icon=HAND_ICON, action=("train", "sociability")),
         ]
 
         inv = self.context.inventory
@@ -516,7 +516,7 @@ class MainScene(Scene):
         elif action_type == "groom":
             self.character.trigger('being_groomed')
         elif action_type == "train":
-            self.character.trigger('training')
+            self.character.trigger('training', training_type=action[1])
         elif action_type == "go_store":
             return ('change_scene', 'store')
         elif action_type == "gardening_place_pot":
