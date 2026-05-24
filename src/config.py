@@ -78,7 +78,7 @@ WIFI_ENABLED = True
 SHOW_DEBUG_MENUS = True
 
 # Software Version
-VERSION = "0.7.1"
+VERSION = "0.7.2"
 
 # Game Constants
 FPS = 12  # Target frames per second

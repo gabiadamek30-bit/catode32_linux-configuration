@@ -96,7 +96,7 @@ class VocalizingBehavior(BaseBehavior):
         elif icon == 'bored' and not ms.get('played'):
             return "Your pet is bored. Press 'Menu 2' to use some toys to play with them."
         elif icon == 'lonely' and not ms.get('petted'):
-            return "Your pe tis lonely. Use 'Menu 2' to give them some affection."
+            return "Your pet is lonely. Use 'Menu 2' to give them some affection."
         if not ms.get('groomed') and context.cleanliness < 45:
             return "Your pet is unkempt. Use 'Menu 2' to groom them through the affection menu."
         return None

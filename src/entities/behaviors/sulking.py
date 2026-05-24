@@ -58,6 +58,39 @@ class SulkingBehavior(BaseBehavior):
         self._bubble_trigger_time = 0.0
         self._bubble_timer = None
         self._sulk_pose = "laying.side.bored"
+        self._sulk_cause = "lonely"
+
+    @classmethod
+    def _pick_sulk_cause(cls, context):
+        """Return the bubble icon for the dominant unmet need."""
+        if context is None:
+            return "lonely"
+        needs = [
+            (context.fullness,    "hunger"),
+            (context.comfort,     "discomfort"),
+            (context.fulfillment, "bored"),
+            (context.affection,   "lonely"),
+        ]
+        _, icon = min(needs, key=lambda x: x[0])
+        return icon
+
+    @classmethod
+    def _hint_text(cls, cause, context):
+        """Return a one-time hint for an unlearned care action, or None."""
+        ms = getattr(context, 'milestones', None)
+        if ms is None:
+            return None
+        if cause == 'hunger' and not ms.get('fed'):
+            has_food = any(v > 0 for v in context.food_stock.values())
+            if has_food:
+                return "Your pet is hungry!\nUse 'Menu 2' to feed them."
+            if not ms.get('store'):
+                return "Your pet is hungry but has no food!\nPress 'Menu 1' to visit the store."
+        elif cause == 'bored' and not ms.get('played'):
+            return "Your pet is bored.\nPress 'Menu 2' to play with them."
+        elif cause == 'lonely' and not ms.get('petted'):
+            return "Your pet is lonely.\nUse 'Menu 2' to give them some affection."
+        return None
 
     def _pick_sulk_pose(self):
         ctx = self._character.context
@@ -85,6 +118,7 @@ class SulkingBehavior(BaseBehavior):
         super().start(on_complete)
         self._phase = "settling"
         self._sulk_pose = self._pick_sulk_pose()
+        self._sulk_cause = self._pick_sulk_cause(self._character.context)
         self._character.set_pose("sitting.side.aloof")
         self._bubble_trigger_time = random.uniform(self.sulk_duration * 0.2, self.sulk_duration * 0.7)
         self._bubble_timer = None
@@ -100,6 +134,11 @@ class SulkingBehavior(BaseBehavior):
                 self._phase = "sulking"
                 self._phase_timer = 0.0
                 self._character.set_pose(self._sulk_pose)
+                ctx = self._character.context
+                if ctx and not getattr(ctx, 'pending_popup', None):
+                    hint = self._hint_text(self._sulk_cause, ctx)
+                    if hint:
+                        ctx.pending_popup = hint
 
         elif self._phase == "sulking":
             self._progress = min(1.0, self._phase_timer / self.sulk_duration)
@@ -124,4 +163,4 @@ class SulkingBehavior(BaseBehavior):
         if self._bubble_timer is None or self._bubble_timer >= self.BUBBLE_DURATION:
             return
         progress = self._bubble_timer / self.BUBBLE_DURATION
-        draw_bubble(renderer, "lonely", char_x, char_y, progress, mirror)
+        draw_bubble(renderer, self._sulk_cause, char_x, char_y, progress, mirror)
