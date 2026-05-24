@@ -64,6 +64,10 @@ class DebugContextScene(Scene):
                 try: uos.remove('/intent.json')
                 except: pass
                 machine.reset()
+            elif result == ('save_context',):
+                self.context.save()
+            elif result == ('reset_stats',):
+                self.context.reset()
             if result is not None or not self._menu.pending_confirmation:
                 self._mode = 'settings'
             return None
@@ -90,6 +94,20 @@ class DebugContextScene(Scene):
                 self._menu.pending_confirmation = reset_item
                 self._mode = 'confirm_reset'
                 return None
+            if item.key == 'save_context':
+                save_item = MenuItem("Save now", action=('save_context',),
+                                     confirm="Save and reboot?")
+                self._menu.open([save_item])
+                self._menu.pending_confirmation = save_item
+                self._mode = 'confirm_reset'
+                return None
+            if item.key == 'reset_stats':
+                reset_item = MenuItem("Reset stats", action=('reset_stats',),
+                                      confirm="Reset all stats to defaults?")
+                self._menu.open([reset_item])
+                self._menu.pending_confirmation = reset_item
+                self._mode = 'confirm_reset'
+                return None
 
         result = self._settings.handle_input()
         if result is not None:
@@ -104,9 +122,10 @@ class DebugContextScene(Scene):
     def _open_settings(self):
         seed_hex = ('%016X' % self.context.pet_seed) if self.context.pet_seed else '?'
         self._settings.open([
-            SettingItem("Coins",        "coins",        min_val=0, max_val=99999, step=1,
-                        value=int(self.context.coins)),
-            SettingItem("Reset Plants",  "reset_plants",  value=""),
-            SettingItem("Factory Reset", "factory_reset", value=""),
-            SettingItem("Seed",          "seed",          value=""),
+            SettingItem("Save now",       "save_context",   value=""),
+            SettingItem("Coins",          "coins",          min_val=0, max_val=99999, step=1, value=int(self.context.coins)),
+            SettingItem("Seed",           "seed",           value=""),
+            SettingItem("Reset Plants",   "reset_plants",   value=""),
+            SettingItem("Reset stats",    "reset_stats",    value=""),
+            SettingItem("Delete Context", "factory_reset",  value=""),
         ])
