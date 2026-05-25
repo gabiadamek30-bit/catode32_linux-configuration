@@ -12,3 +12,5 @@ parse_stats.py
 *stats.csv*
 
 context.json
+backup.json
+backup.old.json

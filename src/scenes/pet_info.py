@@ -218,7 +218,7 @@ class PetInfoScene(Scene):
                 sentence = tmpl.replace('{s}', she).replace('{h}', her)
                 mood.extend(self._wrap(sentence, _FULL_CPL))
         if not mood:
-            mood = self._wrap("It seems like " + she_l + "'s feeling great!", _FULL_CPL)
+            mood = self._wrap("It seems like " + she_l + "'s feeling great at the moment!", _FULL_CPL)
         body.extend(mood)
         body.append('')
 

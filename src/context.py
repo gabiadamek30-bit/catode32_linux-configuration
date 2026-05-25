@@ -161,6 +161,13 @@ class GameContext:
             import uos
             uos.sync()
             self.last_save_time = time.ticks_ms()
+            try:
+                import backup as _bk
+                import sys as _sys
+                _bk.maybe_write_snapshot(self)
+                _sys.modules.pop('backup', None)
+            except Exception as _be:
+                print("[Backup] Snapshot error: " + str(_be))
             return True
         except Exception as e:
             print("[Context] Save failed: " + str(e))

@@ -13,6 +13,8 @@ from ui import draw_bubble, Popup
 from ui_keyboard import OnScreenKeyboard
 from entities.character import CharacterEntity
 from menu import Menu, MenuItem
+from assets.icons import TOM_ICON, QUEEN_ICON
+from assets.character import POSES
 
 _GRID    = 0
 _PROFILE = 1
@@ -35,14 +37,19 @@ _TEMPERAMENT_LABELS = ('Bold', 'Loyal', 'Mischievous', 'Curious', 'Sociable')
 _PORTRAIT_EXCLUDE = frozenset(('costume_sitting', 'sitting_back'))
 
 _TOM_NAMES    = ('Jasper', 'Orion', 'Bennie', 'Winston', 'Reginald',
-                 'Odie', 'Beasley', 'Yoshi', 'Zeus', 'Zeke')
+                 'Odie', 'Beasley', 'Yoshi', 'Zeus', 'Zeke', 'Leo',
+                 'Ajax', 'Java', 'Rio', 'Gizmo', 'Loki', 'Smokey',
+                 'Rebel', 'Milo', 'Simba', 'Rocky', 'Jet', 'Mozart')
 _QUEEN_NAMES  = ('Bean', 'Lyra', 'Tressym', 'Angel', 'Callie',
                  'Honey', 'Piper', 'Roxie', 'Daisy', 'Jasmine',
-                 'Lizzy', 'Daphnie', 'Paprika')
+                 'Lizzy', 'Daphnie', 'Paprika', 'Mocha', 'Cocoa',
+                 'Luna', 'Peaches', 'Kiki', 'Suki', 'Cleo')
 _EITHER_NAMES = ('Juno', 'Jessie', 'Remy', 'Jiji', 'Turtle',
                  'Bandit', 'Fuzzy', 'June', 'Koko', 'Noodle',
                  'Pixel', 'Scratches', 'Scraps', 'Silver', 'Sushi',
-                 'Tiger', 'Tux', 'Umi', 'Whiskers', 'Ziggy')
+                 'Tiger', 'Tux', 'Umi', 'Whiskers', 'Ziggy', 'Patch',
+                 'Midnight', 'Gato', 'Hunter', 'Pepper', 'Bengie',
+                 'Kitty', 'Snowball', 'Star', 'Artemis', 'Tang')
 
 # Grid layout constants (title 9px, two rows of 27px each = 63px total)
 _TITLE_H   = 9
@@ -79,7 +86,6 @@ class AdoptionScene(Scene):
         self._kb     = OnScreenKeyboard(self.renderer, self.input, charset='full', max_len=12)
         self._popup  = Popup(self.renderer, x=0, y=0, width=128, height=55, padding=3)
         self._menu   = Menu(self.renderer, self.input)
-        from assets.character import POSES
         self._portrait_poses = self._build_portrait_poses(POSES)
         self._candidates = self._make_candidates()
 
@@ -107,23 +113,33 @@ class AdoptionScene(Scene):
             favs    = reset_context._derive_favorites(seed)
             offs    = reset_context._derive_trait_offsets(seed)
             gender  = favs['pet_gender']
-            portrait = (seed >> 40) % len(self._portrait_poses)
+            portrait_idx = (seed >> 40) % len(self._portrait_poses)
+            pname = self._portrait_poses[portrait_idx]
+            parts = pname.split('.')
+            pose  = POSES[parts[0]][parts[1]][parts[2]]
+            portrait_key = (id(pose['head']), id(pose['eyes']))
             identity = (offs.index(max(offs)), seed % 12)  # (temper, star_sign)
             id_set  = used_tom_id if gender == 'tom' else used_queen_id
-            if portrait in used_portraits or identity in id_set:
+            if portrait_key in used_portraits or identity in id_set:
                 continue
-            cand = {'seed': seed, 'favs': favs, 'offsets': offs}
+            pool = (_TOM_NAMES if gender == 'tom' else _QUEEN_NAMES) + _EITHER_NAMES
+            name = pool[(seed >> 20) % len(pool)]
+            cand = {'seed': seed, 'favs': favs, 'offsets': offs, 'name': name}
             if gender == 'tom' and len(toms) < 2:
                 toms.append(cand)
-                used_portraits.add(portrait)
+                used_portraits.add(portrait_key)
                 id_set.add(identity)
             elif gender == 'queen' and len(queens) < 2:
                 queens.append(cand)
-                used_portraits.add(portrait)
+                used_portraits.add(portrait_key)
                 id_set.add(identity)
         sys.modules.pop('reset_context', None)
-        # Layout: top-left=tom, top-right=queen, bottom-left=tom, bottom-right=queen
-        return [toms[0], queens[0], toms[1], queens[1]]
+        import random
+        candidates = [toms[0], queens[0], toms[1], queens[1]]
+        for i in range(len(candidates) - 1, 0, -1):
+            j = random.randint(0, i)
+            candidates[i], candidates[j] = candidates[j], candidates[i]
+        return candidates
 
     def unload(self):
         super().unload()
@@ -202,7 +218,7 @@ class AdoptionScene(Scene):
         if self.input.was_just_pressed('b'):
             self._state = _GRID
         elif self.input.was_just_pressed('a'):
-            item = MenuItem('Adopt', action=('adopt',), confirm='Adopt this cat?')
+            item = MenuItem('Adopt', action=('adopt',), confirm='Is this the cat you want to adopt?')
             self._menu.open([item])
             self._menu.pending_confirmation = item
             self._state = _CONFIRM
@@ -215,11 +231,8 @@ class AdoptionScene(Scene):
     def _input_confirm(self):
         result = self._menu.handle_input()
         if result == ('adopt',):
-            cand    = self._candidates[self._viewing]
-            gender  = cand['favs']['pet_gender']
-            pool    = (_TOM_NAMES if gender == 'tom' else _QUEEN_NAMES) + _EITHER_NAMES
-            default = pool[(cand['seed'] >> 20) % len(pool)]
-            self._kb.open('Name your cat', default)
+            cand = self._candidates[self._viewing]
+            self._kb.open('Name your cat', cand['name'])
             self._state = _NAMING
         elif result is not None or not self._menu.pending_confirmation:
             self._state = _PROFILE
@@ -250,6 +263,10 @@ class AdoptionScene(Scene):
         ctx.milestones        = {'fed': False, 'groomed': False, 'played': False,
                                   'petted': False, 'store': False}
         ctx.first_impressions = True
+        import backup as _bk
+        import sys as _sys
+        _bk.write_adoption(self._candidates, cand['seed'], name)
+        _sys.modules.pop('backup', None)
         # Kick off the adoption moment
         self._moment_x      = -20.0
         self._moment_timer  = 0.0
@@ -283,10 +300,9 @@ class AdoptionScene(Scene):
         r = self.renderer
 
         # Title
-        title = 'Choose your cat'
+        title = 'Adoptable Pets'
         r.draw_text(title, (128 - len(title) * 8) // 2, 0)
         # Cells
-        from assets.character import POSES
         pp = self._portrait_poses
         for i, cand in enumerate(self._candidates):
             col = i % 2
@@ -317,10 +333,9 @@ class AdoptionScene(Scene):
         ey = hy + head['eye_y'] - eyes['anchor_y']
         r.draw_sprite_obj(eyes, ex, ey)
 
-        # Gender label — bottom-right corner (space reserved for future 7x7 sprites)
         gender = cand['favs']['pet_gender']
-        label  = 'M' if gender == 'tom' else 'F'
-        r.draw_text(label, cx + _CELL_W - 10, cy + _CELL_H - 9)
+        icon   = TOM_ICON if gender == 'tom' else QUEEN_ICON
+        r.draw_sprite_obj(icon, cx + _CELL_W - 12, cy + _CELL_H - 12)
 
     # ------------------------------------------------------------------
     # Profile
@@ -330,7 +345,8 @@ class AdoptionScene(Scene):
         favs    = cand['favs']
         offs    = cand['offsets']
         seed    = cand['seed']
-        pronoun = 'He' if favs['pet_gender'] == 'tom' else 'She'
+        gender     = favs['pet_gender']
+        possessive = 'His' if gender == 'tom' else 'Her'
         sign    = _STAR_SIGNS[seed % 12]
         dom     = offs.index(max(offs))
         temper  = _TEMPERAMENT_LABELS[dom]
@@ -340,8 +356,8 @@ class AdoptionScene(Scene):
         meal  = _fmt(favs['fav_meal'])
         snack = _fmt(favs['fav_snack'])
         toy   = _fmt(favs['fav_toy'])
-        line1 = pronoun + ' is a ' + temper.lower() + ' ' + sign.lower() + ', who loves ' + weather + ' weather.'
-        line2 = 'Their favorite meal is ' + meal + '. Favorite snack is ' + snack + '. And their favorite toy is ' + toy + '.'
+        line1 = cand['name'] + ' is a ' + temper.lower() + ' ' + sign.lower() + ', who loves ' + weather + ' weather.'
+        line2 = possessive + ' favorite meal is ' + meal + '. ' + possessive + ' favorite snack is ' + snack + '. And ' + possessive.lower() + ' favorite toy is the ' + toy + '.'
         return line1 + '\n' + line2
 
     def _draw_profile(self):

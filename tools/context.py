@@ -7,6 +7,8 @@ Usage:
     ./tools/context.py --import context.json
     ./tools/context.py --export context.json --port /dev/tty.usbserial-0001
     ./tools/context.py --import context.json --port /dev/tty.usbserial-0001
+    ./tools/context.py --backups
+    ./tools/context.py --backups --port /dev/tty.usbserial-0001
 """
 
 import argparse
@@ -14,6 +16,7 @@ import subprocess
 import sys
 
 _DEVICE_SAVE_PATH = '/save.json'
+_DEVICE_BACKUP_PATHS = ['/backup.json', '/backup.old.json']
 
 
 def _run_mp(port, args):
@@ -53,18 +56,42 @@ def import_(path, port):
     print('Done.')
 
 
+def export_backups(port):
+    for device_path in _DEVICE_BACKUP_PATHS:
+        local_name = device_path.lstrip('/')
+        print(f'Exporting {device_path} -> {local_name}')
+        result = subprocess.run(
+            (['mpremote'] + (['connect', port] if port else []) +
+             ['resume', 'exec',
+              f"try:\n f=open('{device_path}');d=f.read();f.close();print(d,end='')\nexcept OSError:print('__NOT_FOUND__',end='')",
+              '+', 'reset']),
+            capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f'  Warning: could not read {device_path} — skipping', file=sys.stderr)
+            continue
+        if result.stdout == '__NOT_FOUND__':
+            print(f'  {device_path} not found on device — skipping')
+            continue
+        with open(local_name, 'w') as f:
+            f.write(result.stdout)
+    print('Done.')
+
+
 def main():
     parser = argparse.ArgumentParser(description='Import/export pet context (save file).')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--export', metavar='FILE', help='Copy save file from device to FILE')
     group.add_argument('--import', metavar='FILE', dest='import_', help='Copy FILE to device and reboot')
+    group.add_argument('--backups', action='store_true', help='Copy backup.json and backup.old.json from device to current directory')
     parser.add_argument('--port', metavar='PORT', help='Serial port (e.g. /dev/tty.usbserial-0001)')
     args = parser.parse_args()
 
     if args.export:
         export(args.export, args.port)
-    else:
+    elif args.import_:
         import_(args.import_, args.port)
+    else:
+        export_backups(args.port)
 
 
 if __name__ == '__main__':

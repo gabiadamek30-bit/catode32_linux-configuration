@@ -163,8 +163,8 @@ class WeatherSystem:
         # Use bits 8-21 of the seed as the starting step offset
         step = (pet_seed >> 8) & 0x3FFF
 
-        # All pets start at the beginning of spring
-        season_offset = 60
+        # All pets start in late spring
+        season_offset = 120
         environment['season_offset'] = season_offset
         environment['season'] = get_season(0, season_offset)
 
