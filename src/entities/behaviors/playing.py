@@ -4,7 +4,7 @@ import math
 import random
 from entities.behaviors.base import BaseBehavior
 from ui import draw_bubble
-from assets.items import YARN_BALL, MOUSE_TOY
+from assets.items import YARN_BALL, MOUSE_TOY, HAND_SCRATCH
 
 
 # Variant configurations
@@ -20,6 +20,9 @@ VARIANTS = {
     },
     "mouse": {
         "stats": {"playfulness": -8, "energy": -4, "focus": -1, "fitness": 1.5, "fulfillment": 1.5, "courage": 0.4},
+    },
+    "hand": {
+        "stats": {"playfulness": -6, "energy": -3, "focus": -1, "fitness": 1.0, "fulfillment": 1.0, "courage": 0.3},
     },
     "laser": {
         "stats": {"playfulness": -6, "energy": -3, "focus": -1, "fitness": 1.5, "fulfillment": 1.5, "courage": 0.4},
@@ -47,6 +50,12 @@ BALL_BOUNCE_DAMPING = 0.55     # fraction of speed kept after hitting a boundary
 BALL_ROLL_RANGE = 60           # max horizontal offset left/right from cat center
 BALL_Y_OFFSET = 8              # pixels above cat's y anchor
 MOUSE_Y_OFFSET = 4             # pixels above cat's y anchor (sits lower, on the floor)
+HAND_Y_OFFSET = 6              # pixels above cat's y anchor
+HAND_ANIM_STEP = 10            # pixels of travel before toggling between open/closed frames
+HAND_PUSH_FORCE = 300          # pixels/s² acceleration when player holds a direction
+HAND_MAX_SPEED = 90            # max hand speed in pixels per second
+HAND_FRICTION = 0.08           # fraction of speed retained per second (stops quickly)
+HAND_BOUNCE_DAMPING = 0.20     # fraction of speed kept after hitting a boundary
 BALL_POUNCE_DELAY_MIN = 2.5   # minimum seconds before each pounce
 BALL_POUNCE_DELAY_MAX = 6.0   # maximum seconds before each pounce
 
@@ -217,6 +226,12 @@ class PlayingBehavior(BaseBehavior):
         self._mouse_vel_x = 0.0
         self._mouse_facing_right = False
 
+        # Hand variant state
+        self._hand_offset_x = 0.0
+        self._hand_vel_x = 0.0
+        self._hand_facing_right = False
+        self._hand_anim_dist = 0.0   # accumulated travel distance for frame selection
+
         # Laser variant state
         self._laser_offset_x = 0.0    # current offset from character.x (wobble + user)
         self._laser_user_x = 0.0      # player-controlled base position
@@ -298,6 +313,8 @@ class PlayingBehavior(BaseBehavior):
             self._start_ball()
         elif self._variant == "mouse":
             self._start_mouse()
+        elif self._variant == "hand":
+            self._start_hand()
         elif self._variant == "laser":
             self._start_laser()
         elif self._variant in ("string", "feather"):
@@ -354,6 +371,21 @@ class PlayingBehavior(BaseBehavior):
         self._phase = "watching"
         self._character.set_pose("playful.forward.wowed")
 
+    def _start_hand(self):
+        """Initialise the hand toy variant state and enter the watching phase."""
+        self._hand_offset_x = 0.0
+        self._hand_vel_x = 0.0
+        self._hand_facing_right = False
+        self._hand_anim_dist = 0.0
+        self._pounces_total = random.randint(POUNCE_COUNT_MIN, POUNCE_COUNT_MAX)
+        self._pounces_done = 0
+        self._pounce_timer = random.uniform(BALL_POUNCE_DELAY_MIN, BALL_POUNCE_DELAY_MAX)
+        self._eye_frame_override = _compute_eye_frame(
+            self._hand_offset_x, self._character.mirror
+        )
+        self._phase = "watching"
+        self._character.set_pose("playful.forward.wowed")
+
     def _start_string(self):
         """Initialise the dangling string and enter the watching phase."""
         self._str_node_count = FEATHER_SEGMENTS if self._variant == "feather" else STRING_SEGMENTS
@@ -400,6 +432,8 @@ class PlayingBehavior(BaseBehavior):
             self._update_ball(dt)
         elif self._variant == "mouse":
             self._update_mouse(dt)
+        elif self._variant == "hand":
+            self._update_hand(dt)
         elif self._variant == "laser":
             self._update_laser(dt)
         elif self._variant in ("string", "feather"):
@@ -547,6 +581,65 @@ class PlayingBehavior(BaseBehavior):
             x_min, x_max = self._get_scene_bounds()
             self._character.x = max(x_min, min(x_max, self._character.x))
             self._mouse_vel_x = 0.0
+            self._phase = "recovering"
+            self._phase_timer = 0.0
+            self._character.set_pose("sitting_silly.side.happy")
+
+    # --- Hand variant ---
+
+    def _update_hand(self, dt):
+        inp = getattr(self._character.context, 'input', None)
+        if inp:
+            if inp.is_pressed('left'):
+                self._hand_vel_x -= HAND_PUSH_FORCE * dt
+            if inp.is_pressed('right'):
+                self._hand_vel_x += HAND_PUSH_FORCE * dt
+            if self._hand_vel_x > HAND_MAX_SPEED:
+                self._hand_vel_x = HAND_MAX_SPEED
+            elif self._hand_vel_x < -HAND_MAX_SPEED:
+                self._hand_vel_x = -HAND_MAX_SPEED
+        self._hand_vel_x *= HAND_FRICTION ** dt
+        self._hand_offset_x += self._hand_vel_x * dt
+        self._hand_anim_dist += abs(self._hand_vel_x) * dt
+        if abs(self._hand_vel_x) > 2.0:
+            self._hand_facing_right = self._hand_vel_x > 0
+        if self._hand_offset_x >= BALL_ROLL_RANGE:
+            self._hand_offset_x = BALL_ROLL_RANGE
+            self._hand_vel_x = -abs(self._hand_vel_x) * HAND_BOUNCE_DAMPING
+        elif self._hand_offset_x <= -BALL_ROLL_RANGE:
+            self._hand_offset_x = -BALL_ROLL_RANGE
+            self._hand_vel_x = abs(self._hand_vel_x) * HAND_BOUNCE_DAMPING
+        self._eye_frame_override = _compute_eye_frame(
+            self._hand_offset_x, self._character.mirror
+        )
+
+        if self._phase == "watching":
+            self._update_hand_rolling(dt)
+        elif self._phase == "pouncing":
+            self._update_hand_pounce(dt)
+        elif self._phase == "recovering":
+            self._update_recovering(dt, BALL_POUNCE_DELAY_MIN, BALL_POUNCE_DELAY_MAX, self._hand_offset_x)
+        elif self._phase == "catching":
+            self._update_catching(dt)
+
+    def _update_hand_rolling(self, dt):
+        self._pounce_timer -= dt
+        if self._pounce_timer <= 0:
+            if not self._rejecting:
+                self._pounces_done += 1
+                self._begin_pounce(self._hand_offset_x)
+                return
+            self._pounce_timer = random.uniform(BALL_POUNCE_DELAY_MIN, BALL_POUNCE_DELAY_MAX)
+        self._progress = self._pounces_done / self._pounces_total
+
+    def _update_hand_pounce(self, dt):
+        slide = self._pounce_direction * POUNCE_SLIDE_SPEED * dt
+        self._character.x += slide
+        self._hand_offset_x -= slide
+        if self._phase_timer >= POUNCE_SLIDE_DURATION:
+            x_min, x_max = self._get_scene_bounds()
+            self._character.x = max(x_min, min(x_max, self._character.x))
+            self._hand_vel_x = 0.0
             self._phase = "recovering"
             self._phase_timer = 0.0
             self._character.set_pose("sitting_silly.side.happy")
@@ -853,6 +946,8 @@ class PlayingBehavior(BaseBehavior):
             self._draw_ball(renderer, char_x, char_y)
         elif self._variant == "mouse":
             self._draw_mouse(renderer, char_x, char_y)
+        elif self._variant == "hand":
+            self._draw_hand(renderer, char_x, char_y)
         elif self._variant == "laser":
             self._draw_laser(renderer, char_x, char_y)
         elif self._variant in ("string", "feather"):
@@ -885,6 +980,17 @@ class PlayingBehavior(BaseBehavior):
         mouse_x = char_x + int(self._mouse_offset_x) - hw
         mouse_y = char_y - MOUSE_Y_OFFSET - hh
         renderer.draw_sprite_obj(MOUSE_TOY, mouse_x, mouse_y, mirror_h=self._mouse_facing_right)
+
+    def _draw_hand(self, renderer, char_x, char_y):
+        """Draw the hand toy, alternating open/closed frames based on distance traveled."""
+        if self._phase not in ("watching", "pouncing", "recovering"):
+            return
+        hw = HAND_SCRATCH["width"] // 2
+        hh = HAND_SCRATCH["height"] // 2
+        hand_x = char_x + int(self._hand_offset_x) - hw
+        hand_y = char_y - HAND_Y_OFFSET - hh
+        frame = int(self._hand_anim_dist / HAND_ANIM_STEP) % 2
+        renderer.draw_sprite_obj(HAND_SCRATCH, hand_x, hand_y, frame=frame, mirror_h=self._hand_facing_right)
 
     def _draw_laser(self, renderer, char_x, char_y):
         """Draw the laser dot and beam line (always together while visible)."""

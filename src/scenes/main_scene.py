@@ -298,7 +298,7 @@ class MainScene(Scene):
         player_controls_toy = (
             behavior
             and getattr(behavior, 'active', False)
-            and getattr(behavior, '_variant', None) in ('laser', 'ball', 'string', 'feather', 'mouse')
+            and getattr(behavior, '_variant', None) in ('laser', 'ball', 'string', 'feather', 'mouse', 'hand')
         )
         dx, dy = self.input.get_direction()
         if dx != 0 and not player_controls_toy:
@@ -380,7 +380,8 @@ class MainScene(Scene):
             ))
         feed_items.append(MenuItem("Store...", action=("go_store",)))
 
-        toy_items = [
+        toy_items = [MenuItem("Hand", icon=HAND_ICON, action=("toy", {"name": "Hand", "variant": "hand"}))]
+        toy_items += [
             MenuItem(toy["name"], icon=TOY_ICONS.get(toy["name"]), action=("toy", toy))
             for toy in self.context.inventory.get("toys", [])
         ]

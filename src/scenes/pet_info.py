@@ -169,7 +169,7 @@ class PetInfoScene(Scene):
         head_w             = self._head_sprite['width']
         head_h             = self._head_sprite['height']
         self._narrow_lines = (head_h + 7) // 8   # ceiling: lines the headshot spans
-        self._narrow_x     = head_w + 2           # 2 px gap between headshot and text
+        self._narrow_x     = head_w + 6           # 6 px gap between headshot and text
         narrow_cpl         = (128 - self._narrow_x - 3) // 8
 
         # Pronouns
