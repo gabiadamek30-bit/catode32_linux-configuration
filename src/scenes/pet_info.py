@@ -206,9 +206,9 @@ class PetInfoScene(Scene):
 
         _add(Her + ' favorite meal is ' + meal +
              ', and ' + her + ' favorite snack is ' + snack + '.')
-        _add(Her + ' favorite room is the ' + room +
-             ', and ' + her + ' favorite weather is ' + weather + '.')
-        _add(she + ' loves to play with the ' + toy + ' the most.')
+        _add(she + ' loves to hang out in the ' + room +
+             ', and ' + she_l + ' really enjoys ' + weather + ' days.')
+        _add('Of all the toys, ' + she_l + ' loves to play with the ' + toy + ' the most.')
 
         # Mood sentences: one per low stat; fallback to "feeling great"
         mood = []
@@ -218,7 +218,7 @@ class PetInfoScene(Scene):
                 sentence = tmpl.replace('{s}', she).replace('{h}', her)
                 mood.extend(self._wrap(sentence, _FULL_CPL))
         if not mood:
-            mood = self._wrap("It seems like " + she_l + "'s feeling great at the moment!", _FULL_CPL)
+            mood = self._wrap("It seems like " + she_l + "'s feeling pretty great at the moment!", _FULL_CPL)
         body.extend(mood)
         body.append('')
 
@@ -251,6 +251,7 @@ class PetInfoScene(Scene):
         # Strip trailing blanks, then add a blank spacer before "Change Name"
         while body and body[-1] == '':
             body.pop()
+        body.append('')
         body.append('')
         body.append('Change Name')
 
