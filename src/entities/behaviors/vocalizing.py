@@ -90,15 +90,15 @@ class VocalizingBehavior(BaseBehavior):
         if icon == 'hunger' and not ms.get('fed'):
             has_food = any(v > 0 for v in context.food_stock.values())
             if has_food:
-                return "Your pet is hungry!\nUse 'Menu 2' to feed them."
+                return "Your pet is hungry!\nYou should feed them a meal or a snack."
             if not ms.get('store'):
-                return "Your pet is hungry but you have no food! Press 'Menu 1' to visit the store. Play minigames to earn more coins."
+                return "Your pet is hungry but has no food!\nVisit the store to buy them something.\nPlay minigames to earn more coins."
         elif icon == 'bored' and not ms.get('played'):
-            return "Your pet is bored. Press 'Menu 2' to use some toys to play with them."
+            return "Your pet is bored.\nYou should play with them."
         elif icon == 'lonely' and not ms.get('petted'):
-            return "Your pet is lonely. Use 'Menu 2' to give them some affection."
+            return "Your pet is lonely.\nYou should play with them or give them some attention."
         if not ms.get('groomed') and context.cleanliness < 45:
-            return "Your pet is unkempt. Use 'Menu 2' to groom them through the affection menu."
+            return "Your pet is unkempt.\nYou should groom them to help them stay clean."
         return None
 
     def start(self, on_complete=None):
