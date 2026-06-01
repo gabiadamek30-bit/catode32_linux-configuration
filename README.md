@@ -181,296 +181,369 @@ To care for a sick pet and nurture them back to health, make sure they're well f
 
 ### Board Configuration
 
-The project supports both ESP32-C6 and ESP32-C3 boards. To configure for your board:
+The project supports both ESP32-C6 
 
 1. Open `src/config.py`
-2. Set `BOARD_TYPE` to either `"ESP32-C6"` or `"ESP32-C3"`
+2. Set `BOARD_TYPE` to `"ESP32-C6"` 
 
-```python
-# In src/config.py
-BOARD_TYPE = "ESP32-C6"  # Change to "ESP32-C3" for ESP32-C3 board
+# Hardware Requirements
+
+* ESP32-C6 SuperMini
+* SSD1306 OLED Display (128x64, I2C)
+* 6–8 Momentary Push Buttons
+* Breadboard
+* Dupont Jumper Wires
+* USB-C Cable
+* Linux PC (Ubuntu/Debian recommended)
+
+---
+
+# OLED Wiring
+
+Connect the SSD1306 display as follows:
+
+| OLED Pin | ESP32-C6 Pin |
+| -------- | ------------ |
+| GND      | GND          |
+| VDD      | 3V3          |
+| SDA      | GPIO4        |
+| SCL/SCK  | GPIO7        |
+
+**Important:** SDA and SCL are easy to mix up. If the display is not detected, try swapping them.
+
+---
+
+# Button Wiring
+
+Each button should be connected between the assigned GPIO and GND.
+
+No external resistors are required because Catode32 uses the ESP32's internal pull-up resistors.
+
+## Main Controls
+
+| Function | GPIO   |
+| -------- | ------ |
+| UP       | GPIO14 |
+| DOWN     | GPIO18 |
+| LEFT     | GPIO20 |
+| RIGHT    | GPIO19 |
+| A        | GPIO1  |
+| B        | GPIO0  |
+
+## Menu Buttons
+
+| Function | GPIO  |
+| -------- | ----- |
+| MENU1    | GPIO3 |
+| MENU2    | GPIO2 |
+
+## Wiring Example
+
+```text
+GPIO14 ----[BUTTON]---- GND
 ```
 
-### Wiring
+Repeat the same pattern for all buttons.
 
-Choose the wiring diagram for your board. Each button connects between GPIO pin and GND (internal pull-ups enabled).
+---
 
-#### ESP32-C6 Wiring
+# Software Installation
 
-**Display (I2C):**
-|Display Pin | ESP32-C6 Pin |
-|--------|----------|
-|VCC | 3V3 |
-|GND | GND |
-|SDA | GPIO4 |
-|SCL | GPIO7 |
+## Install Dependencies
 
-**Buttons:**
-| Button | GPIO Pin |
-|--------|----------|
-| UP     | GPIO14   |
-| DOWN   | GPIO18   |
-| LEFT   | GPIO20   |
-| RIGHT  | GPIO19   |
-| A      | GPIO1    |
-| B      | GPIO0    |
-| MENU1  | GPIO3    |
-| MENU2  | GPIO2    |
+Ubuntu/Debian:
 
-#### ESP32-C3 Wiring
-
-**Display (I2C):**
-|Display Pin | ESP32-C3 Pin |
-|--------|----------|
-|VCC | 3V3 |
-|GND | GND |
-|SDA | GPIO6 |
-|SCL | GPIO7 |
-
-**Buttons:**
-| Button | GPIO Pin |
-|--------|----------|
-| UP     | GPIO0    |
-| DOWN   | GPIO1    |
-| LEFT   | GPIO2    |
-| RIGHT  | GPIO3    |
-| A      | GPIO4    |
-| B      | GPIO5    |
-| MENU1   | GPIO10  |
-| MENU2   | GPIO11  |
-
-> **Note:** The ESP32-C3 configuration avoids strapping pins (GPIO2, GPIO8, GPIO9) to prevent boot issues.
-
-## Installation
-
-This project uses **custom MicroPython firmware** with asset data frozen directly into flash. The sprite/icon data lives in flash rather than RAM, which frees up a significant portion of the ~85KB heap budget. You build the firmware once, flash it, then upload only the game logic.
-
-### 1. Set Up Build Tools (one-time)
-
-Install build prerequisites:
 ```bash
-brew install cmake ninja dfu-util   # macOS
+sudo apt update
+
+sudo apt install git cmake ninja-build dfu-util \
+python3 python3-pip python3-venv \
+build-essential libffi-dev libssl-dev
 ```
 
-Clone ESP-IDF and MicroPython into `~/esp/`:
+---
+
+# Install ESP-IDF
+
+Create the ESP workspace:
+
 ```bash
 mkdir -p ~/esp
+cd ~/esp
+```
 
-# ESP-IDF (required version: v5.5.1)
-git clone --recursive https://github.com/espressif/esp-idf.git ~/esp/esp-idf
-cd ~/esp/esp-idf && git checkout v5.5.1
-git submodule update --init --recursive
-./install.sh esp32c6,esp32c3
+Clone ESP-IDF:
 
-# MicroPython
-git clone https://github.com/micropython/micropython.git ~/esp/micropython
+```bash
+git clone -b v5.5.1 --recursive https://github.com/espressif/esp-idf.git
+```
+
+Install ESP-IDF:
+
+```bash
+cd ~/esp/esp-idf
+./install.sh esp32c6
+```
+
+Activate the environment:
+
+```bash
+source ~/esp/esp-idf/export.sh
+```
+
+Expected output:
+
+```text
+Done! You can now compile ESP-IDF projects.
+```
+
+---
+
+# Python Environment
+
+Create a virtual environment:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+Install required tools:
+
+```bash
+pip install mpremote mpy-cross
+```
+
+---
+
+# MicroPython Setup
+
+Clone MicroPython:
+
+```bash
+cd ~/esp
+
+git clone https://github.com/micropython/micropython.git
+```
+
+Build mpy-cross:
+
+```bash
 cd ~/esp/micropython
-git submodule update --init --recursive
+
 make -C mpy-cross
 ```
 
-> If you keep ESP-IDF or MicroPython somewhere other than `~/esp/`, set the `IDF_PATH` and `MICROPYTHON_DIR` environment variables before running build scripts.
+---
 
-### 2. Build and Flash Custom Firmware
+# Clone Catode32
 
 ```bash
-# Build and flash in one step (auto-detects USB port):
-./tools/build_firmware.sh build-flash
+git clone https://github.com/YOUR_USERNAME/catode32.git
 
-# Or specify board and port explicitly:
-./tools/build_firmware.sh build-flash esp32c6 /dev/tty.usbmodem1234
-./tools/build_firmware.sh build-flash esp32c3
+cd catode32
 ```
 
-This compiles a custom MicroPython binary with all `src/assets/` modules frozen in, then flashes bootloader, partition table, and firmware to the device.
+Replace `YOUR_USERNAME` with your fork.
 
-> **Note:** Flashing replaces the entire filesystem. Re-run `./upload.sh` after flashing to restore game files.
+---
 
-### 3. Configure Board Type
+# Flashing the ESP32-C6
 
-Before uploading, set your board type in `src/config.py`:
+Connect the board and identify the serial port:
+
+```bash
+ls /dev/ttyACM*
+```
+
+Example:
+
+```text
+/dev/ttyACM0
+```
+
+If you receive a permission error:
+
+```text
+Permission denied: '/dev/ttyACM0'
+```
+
+Add your user to the dialout group:
+
+```bash
+sudo usermod -aG dialout $USER
+```
+
+Then log out and back in (or reboot).
+
+---
+
+# Uploading Catode32
+
+Upload the project:
+
+```bash
+./upload.sh /dev/ttyACM0
+```
+
+Wait until the upload finishes successfully.
+
+---
+
+# Verifying OLED Communication
+
+Open a REPL:
+
+```bash
+mpremote connect /dev/ttyACM0 repl
+```
+
+Run:
+
 ```python
-BOARD_TYPE = "ESP32-C6"  # or "ESP32-C3"
+from machine import Pin, I2C
+
+i2c = I2C(0, scl=Pin(7), sda=Pin(4))
+print(i2c.scan())
 ```
 
-### 4. Upload Game Files
+Expected result:
+
+```python
+[60]
+```
+
+or:
+
+```python
+[0x3C]
+```
+
+If you get:
+
+```python
+[]
+```
+
+the OLED is not being detected.
+
+---
+
+# First Boot
+
+Restart the ESP32-C6.
+
+If everything is configured correctly, Catode32 should start automatically:
+
+```text
+[boot] Starting game...
+==> Virtual Pet Starting...
+```
+
+The game should appear on the OLED display.
+
+---
+
+# Troubleshooting
+
+## OLED Not Detected
+
+Error:
+
+```text
+OSError: [Errno 19] ENODEV
+```
+
+Check:
+
+* SDA connected to GPIO4
+* SCL connected to GPIO7
+* OLED powered from 3V3
+* SDA and SCL not swapped
+* Loose jumper wires
+
+Test again:
+
+```python
+from machine import Pin, I2C
+
+i2c = I2C(0, scl=Pin(7), sda=Pin(4))
+print(i2c.scan())
+```
+
+Expected:
+
+```python
+[60]
+```
+
+---
+
+## Serial Permission Error
+
+Error:
+
+```text
+Permission denied: /dev/ttyACM0
+```
+
+Fix:
 
 ```bash
-./upload.sh
+sudo usermod -aG dialout $USER
 ```
 
-This installs the `ssd1306` library, compiles and uploads all game logic. Asset files are not uploaded since they live in the firmware.
+Log out and back in.
 
+---
 
+## mpremote Not Found
 
-## Desktop Emulator
-
-The game can be run on your computer using pygame, which allows you to experiment with it without needing to setup an ESP32.
-
-### Requirements
-
-- Python 3
-- pygame (`pip install pygame`)
-
-> If your system Python is externally managed (e.g. Homebrew on macOS), use a virtual environment:
-> ```bash
-> python3 -m venv venv
-> source venv/bin/activate
-> pip install pygame
-> ```
-
-### Running
-
-From the `src/` directory:
+Install it:
 
 ```bash
-python main_desktop.py
+pip install mpremote
 ```
 
-### Controls
-
-| Key | Action |
-|-----|--------|
-| Arrow keys | D-pad |
-| Z / X | A / B |
-| A / S | Menu 1 / Menu 2 |
-| Escape | Quit (saves first) |
-
-### Save file
-
-The desktop save is stored at `src/save.json`, separate from the device save at `/save.json` on the ESP32.
-
-
-
-## Development Workflow
-
-For the fastest iteration during development, use the `dev.sh` script which compiles Python to bytecode and runs via `mpremote mount`:
+or:
 
 ```bash
-./dev.sh
+pipx install mpremote
 ```
 
-This script:
-- Compiles all `.py` files in `src/` to `.mpy` bytecode in `build/` (excluding `src/assets/`)
-- Converts level files from `levels/` into binary format in `build/platformer_levels/`
-- Mounts the `build/` directory on the device
-- Runs the game
+---
 
-Asset files are skipped because they are frozen into the firmware. MicroPython resolves frozen modules before the filesystem, so uploading them would be redundant.
+## Common Mistake: SDA/SCL Swapped
 
-> [!NOTE]
-> Requires `mpy-cross` (`pip install mpy-cross`) and `mpremote` (`pip install mpremote`).
-> The device must be running the custom firmware (see Installation). Asset imports will fail on stock MicroPython firmware.
+The most common issue during setup is reversing SDA and SCL on the OLED display.
 
-## Scripts
+Symptoms:
 
-### ./tools/build_firmware.sh
-
-Builds custom MicroPython firmware with asset modules frozen in flash, then optionally flashes it:
-
-```bash
-./tools/build_firmware.sh                        # build only, ESP32-C6
-./tools/build_firmware.sh build-flash            # build and flash, ESP32-C6
-./tools/build_firmware.sh build esp32c3          # build only, ESP32-C3
-./tools/build_firmware.sh flash esp32c6 /dev/tty.usbmodem1234  # flash with explicit port
+```python
+[]
 ```
 
-Re-run this whenever you add new sprite data to `src/assets/` (after running `tools/convert_bytearrays.py` to convert any new `bytearray` literals to `bytes` literals first).
+instead of:
 
-### ./test_hardware.sh
-
-Verifies that your hardware is working correctly:
-
-```bash
-./test_hardware.sh
+```python
+[60]
 ```
 
-This script:
-- Resets the device
-- Scans I2C to confirm the display is detected
-- Enters an interactive button test (press buttons to see them register, Ctrl+C to exit)
+Simply swap SDA and SCL and test again.
 
-Run this first when setting up a new device or debugging hardware issues.
+---
 
-### ./upload.sh
+# Success Checklist
 
-Deploys the project to the ESP32's flash storage:
+* [ ] ESP-IDF installed
+* [ ] Python environment created
+* [ ] MicroPython compiled
+* [ ] Catode32 uploaded
+* [ ] OLED detected (`[60]`)
+* [ ] Buttons connected
+* [ ] Automatic boot working
+* [ ] Virtual pet visible on the display
 
-```bash
-./upload.sh [port]
+```
 ```
 
-This script:
-- Installs the `ssd1306` library via `mip`
-- Compiles all `.py` files to `.mpy` bytecode (excluding `src/assets/`, which are frozen in firmware)
-- Converts level files from `levels/` into binary format in `build/platformer_levels/`
-- Cleans existing files from the device (preserves `lib/`, `save.json`, and `webrepl_cfg.py`)
-- Uploads compiled `.mpy` and `.bin` files and `boot.py` to the device
-
-Use this when you want the pet to run standalone without a laptop connection.
-
-## Running the Game
-
-After uploading, the game starts automatically on power-up or reset.
-
-**To enter REPL mode instead:** Hold **A+B buttons** while powering on or pressing reset. This skips auto-run so `mpremote` can connect.
-
-To manually start the game from REPL:
-
-```bash
-mpremote
->>> import main
->>> main.main()
-```
-
-## Troubleshooting
-
-### "could not enter raw repl" error
-
-If you see `mpremote.transport.TransportError: could not enter raw repl` when running `./dev.sh` or other mpremote commands, it means `boot.py` is on the device and auto-running the game, blocking mpremote from connecting.
-
-**To fix this:**
-
-Either press A + B while `./dev.sh` to interrupt the boot sequence.
-
-Or, to remove the `boot.py` file so that it doesn't activate:
-
-1. Run `mpremote` to connect to the device
-2. Press **Ctrl+C** to interrupt the running game
-3. Press **Ctrl+B** to exit raw REPL and enter friendly REPL
-4. Remove boot.py:
-   ```python
-   import os
-   os.remove('boot.py')
-   ```
-5. Press **Ctrl+X** to exit mpremote
-
-Now `./dev.sh` should work again.
-
-### Monitoring serial output without interrupting the game
-
-To watch `print()` output from a running game without sending Ctrl+C or triggering a reset:
-
-**macOS:**
-```bash
-screen /dev/cu.usbmodem* 115200
-```
-
-**Linux:**
-```bash
-screen /dev/ttyACM0 115200
-```
-
-If the glob doesn't match (or you have multiple devices), find the exact port first:
-- macOS: `ls /dev/cu.*`
-- Linux: `ls /dev/ttyACM*` or `ls /dev/ttyUSB*`
-
-Press **Ctrl+A then K** to exit `screen`.
-
-This is useful after a reboot (e.g. from a context save) breaks an mpremote session; the game is still running and its output is still on the serial port.
-
-## Contributing
-
-It's helpful to open an issue prior to making a PR to allow discussion on the changes.
-
-It's also helpful to keep PRs small and targeted.
