@@ -1,4 +1,18 @@
-_SAVE_PATH = '/save.json'
+def _get_save_paths():
+    paths = []
+    try:
+        import config as _cfg
+        p = getattr(_cfg, 'SAVE_PATH', None)
+        if p:
+            paths.append(p)
+    except Exception:
+        pass
+    if '/save.json' not in paths:
+        paths.append('/save.json')
+    return paths
+
+_SAVE_PATHS = _get_save_paths()
+_SAVE_PATH  = _SAVE_PATHS[0]
 
 
 _SICKNESS_AFFECTED_STATS = frozenset((
@@ -155,23 +169,28 @@ class GameContext:
                 'milestones': getattr(self, 'milestones', {})}
         for key in _STAT_KEYS:
             data[key] = getattr(self, key)
-        try:
-            with open(_SAVE_PATH, 'w') as f:
-                ujson.dump(data, f)
-            import uos
-            uos.sync()
-            self.last_save_time = time.ticks_ms()
+        for path in _SAVE_PATHS:
             try:
-                import backup as _bk
-                import sys as _sys
-                _bk.maybe_write_snapshot(self)
-                _sys.modules.pop('backup', None)
-            except Exception as _be:
-                print("[Backup] Snapshot error: " + str(_be))
-            return True
-        except Exception as e:
-            print("[Context] Save failed: " + str(e))
-            return False
+                with open(path, 'w') as f:
+                    ujson.dump(data, f)
+                try:
+                    import uos
+                    uos.sync()
+                except Exception:
+                    pass
+                self.last_save_time = time.ticks_ms()
+                try:
+                    import backup as _bk
+                    import sys as _sys
+                    _bk.maybe_write_snapshot(self)
+                    _sys.modules.pop('backup', None)
+                except Exception as _be:
+                    print("[Backup] Snapshot error: " + str(_be))
+                print("[Context] Saved to " + path)
+                return True
+            except Exception as e:
+                print("[Context] Could not save to " + path + ": " + str(e))
+        return False
 
     def reset_plants(self):
         """Restore all plants to the default starter set."""
@@ -181,25 +200,36 @@ class GameContext:
         sys.modules.pop('reset_context', None)
 
     def save(self):
-        """Write stats to flash then reboot."""
+        """Write stats to storage. On ESP32, reboots after saving (unless mpremote). On desktop, saves silently."""
         import sys
+        import config as _cfg
         if not self._write_to_flash():
             return
-        if '/remote' in sys.path:
-            # Running under mpremote mount (dev mode) — soft reset would
-            # kill the mount and crash mpremote, so skip it.
-            print("[Context] Saved to " + _SAVE_PATH + " (dev mode, no reboot)")
+        if getattr(_cfg, 'IS_DESKTOP', False):
+            print("[Context] Save complete")
+        elif '/remote' in sys.path:
+            print("[Context] Saved (dev mode, no reboot)")
         else:
-            print("[Context] Saved to " + _SAVE_PATH + ", rebooting...")
+            print("[Context] Saved, rebooting...")
             import machine
             machine.soft_reset()
 
     def load(self):
         """Load stats from flash storage. Returns True if successful."""
         import ujson
+        data = None
+        loaded_path = None
+        for path in _SAVE_PATHS:
+            try:
+                with open(path, 'r') as f:
+                    data = ujson.load(f)
+                loaded_path = path
+                break
+            except Exception:
+                continue
         try:
-            with open(_SAVE_PATH, 'r') as f:
-                data = ujson.load(f)
+            if data is None:
+                raise Exception("No save file found")
             for key in _STAT_KEYS:
                 if key in data:
                     setattr(self, key, data[key])
@@ -263,7 +293,7 @@ class GameContext:
             self.recompute_health()
             import time
             self.last_save_time = time.ticks_ms()
-            print("[Context] Loaded from " + _SAVE_PATH)
+            print("[Context] Loaded from " + (loaded_path or _SAVE_PATH))
             return True
         except Exception as e:
             print("[Context] Load skipped: " + str(e))
