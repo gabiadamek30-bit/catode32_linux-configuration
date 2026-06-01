@@ -95,7 +95,7 @@ class Renderer:
     """Handles all display rendering operations (desktop/pygame version)"""
 
     def __init__(self):
-        pygame.display.set_caption("Catode32 — Desktop")
+        pygame.display.set_caption("Catode32")
         w = config.DISPLAY_WIDTH  * config.DISPLAY_SCALE
         h = config.DISPLAY_HEIGHT * config.DISPLAY_SCALE
         self._surface = pygame.display.set_mode((w, h))
