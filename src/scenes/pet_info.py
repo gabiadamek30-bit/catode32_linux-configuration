@@ -210,12 +210,23 @@ class PetInfoScene(Scene):
              ', and ' + she_l + ' really enjoys ' + weather + ' days.')
         _add('Of all the toys, ' + she_l + ' loves to play with the ' + toy + ' the most.')
 
+        # Sickness
+        sickness = getattr(ctx, 'sickness', 0.0)
+        if sickness >= 7.0:
+            _add(she + ' feels very sick.')
+        elif sickness >= 3.0:
+            _add(she + ' feels pretty sick.')
+        elif sickness > 0.0:
+            _add(she + ' feels a little sick.')
+
         # Mood sentences: one per low stat; fallback to "feeling great"
         mood = []
         for stat, threshold, tmpl in _MOOD_CHECKS:
             val = getattr(ctx, stat, 100.0)
             if isinstance(val, (int, float)) and val < threshold:
                 sentence = tmpl.replace('{s}', she).replace('{h}', her)
+                if mood:
+                    mood.append('')
                 mood.extend(self._wrap(sentence, _FULL_CPL))
         if not mood:
             mood = self._wrap("It seems like " + she_l + "'s feeling pretty great at the moment!", _FULL_CPL)
@@ -238,15 +249,6 @@ class PetInfoScene(Scene):
         # Familiar wifi location
         if getattr(ctx, 'in_familiar_location', False):
             _add(she + ' feels at home here.')
-
-        # Sickness
-        sickness = getattr(ctx, 'sickness', 0.0)
-        if sickness >= 7.0:
-            _add(she + ' feels very sick.')
-        elif sickness >= 3.0:
-            _add(she + ' feels pretty sick.')
-        elif sickness > 0.0:
-            _add(she + ' feels a little sick.')
 
         # Strip trailing blanks, then add a blank spacer before "Change Name"
         while body and body[-1] == '':
