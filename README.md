@@ -168,24 +168,6 @@ To care for a sick pet and nurture them back to health, make sure they're well f
 
 
 ## Setup
-
-### Hardware Requirements
-
-- **ESP32-C6 SuperMini** OR **ESP32-C3** development board
-- **SSD1306 OLED Display** (128x64, I2C)
-- **8 Push Buttons** for input
-
-### Software Requirements
-
-- `mpremote` installed (`pip install mpremote`)
-
-### Board Configuration
-
-The project supports both ESP32-C6 
-
-1. Open `src/config.py`
-2. Set `BOARD_TYPE` to `"ESP32-C6"` 
-
 # Hardware Requirements
 
 * ESP32-C6 SuperMini
@@ -530,20 +512,3 @@ instead of:
 ```
 
 Simply swap SDA and SCL and test again.
-
----
-
-# Success Checklist
-
-* [ ] ESP-IDF installed
-* [ ] Python environment created
-* [ ] MicroPython compiled
-* [ ] Catode32 uploaded
-* [ ] OLED detected (`[60]`)
-* [ ] Buttons connected
-* [ ] Automatic boot working
-* [ ] Virtual pet visible on the display
-
-```
-```
-
